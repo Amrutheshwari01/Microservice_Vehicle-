@@ -27,6 +27,15 @@ if db_url.startswith("sqlite"):
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.close()
+else:
+    @event.listens_for(engine, "connect")
+    def set_postgres_schema(dbapi_connection, connection_record):
+        try:
+            cursor = dbapi_connection.cursor()
+            cursor.execute('SET search_path TO "RTO database", public')
+            cursor.close()
+        except Exception:
+            pass
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

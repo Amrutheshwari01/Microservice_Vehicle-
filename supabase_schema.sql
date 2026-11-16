@@ -1,28 +1,33 @@
 -- ====================================================================
 -- AgriLink Commercial Fleet & Logistics Platform
 -- Supabase (PostgreSQL) Production Schema & Seed Data
+-- Schema: "RTO database"
 -- ====================================================================
 
 -- 1. Enable UUID Extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. Drop existing conflicting tables cleanly if they exist
-DROP TABLE IF EXISTS audit_events CASCADE;
-DROP TABLE IF EXISTS outbox_events CASCADE;
-DROP TABLE IF EXISTS handover_records CASCADE;
-DROP TABLE IF EXISTS booking_sagas CASCADE;
-DROP TABLE IF EXISTS bookings CASCADE;
-DROP TABLE IF EXISTS availability_windows CASCADE;
-DROP TABLE IF EXISTS rental_listings CASCADE;
-DROP TABLE IF EXISTS verification_requests CASCADE;
-DROP TABLE IF EXISTS vehicle_documents CASCADE;
-DROP TABLE IF EXISTS vehicles CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
+-- 2. Create and switch to the "RTO database" schema
+CREATE SCHEMA IF NOT EXISTS "RTO database";
+SET search_path TO "RTO database", public;
+
+-- 3. Drop existing conflicting tables cleanly if they exist
+DROP TABLE IF EXISTS "RTO database".audit_events CASCADE;
+DROP TABLE IF EXISTS "RTO database".outbox_events CASCADE;
+DROP TABLE IF EXISTS "RTO database".handover_records CASCADE;
+DROP TABLE IF EXISTS "RTO database".booking_sagas CASCADE;
+DROP TABLE IF EXISTS "RTO database".bookings CASCADE;
+DROP TABLE IF EXISTS "RTO database".availability_windows CASCADE;
+DROP TABLE IF EXISTS "RTO database".rental_listings CASCADE;
+DROP TABLE IF EXISTS "RTO database".verification_requests CASCADE;
+DROP TABLE IF EXISTS "RTO database".vehicle_documents CASCADE;
+DROP TABLE IF EXISTS "RTO database".vehicles CASCADE;
+DROP TABLE IF EXISTS "RTO database".users CASCADE;
 
 -- ====================================================================
--- TABLE 1: users (Citizen Accounts, Custom Auth & Biometrics)
+-- TABLE 1: users (Citizen Accounts, Custom Auth & Face Biometrics)
 -- ====================================================================
-CREATE TABLE users (
+CREATE TABLE "RTO database".users (
     id VARCHAR(64) PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
     email VARCHAR(120) UNIQUE NOT NULL,
@@ -37,12 +42,12 @@ CREATE TABLE users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_email ON "RTO database".users(email);
 
 -- ====================================================================
 -- TABLE 2: vehicles (Commercial Fleet Registry)
 -- ====================================================================
-CREATE TABLE vehicles (
+CREATE TABLE "RTO database".vehicles (
     id VARCHAR(36) PRIMARY KEY,
     registration_number VARCHAR(32) UNIQUE NOT NULL,
     vehicle_class VARCHAR(32) NOT NULL,
@@ -59,17 +64,17 @@ CREATE TABLE vehicles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_vehicles_reg ON vehicles(registration_number);
-CREATE INDEX idx_vehicles_class ON vehicles(vehicle_class);
-CREATE INDEX idx_vehicles_owner ON vehicles(owner_citizen_id);
-CREATE INDEX idx_vehicles_status ON vehicles(status);
+CREATE INDEX IF NOT EXISTS idx_vehicles_reg ON "RTO database".vehicles(registration_number);
+CREATE INDEX IF NOT EXISTS idx_vehicles_class ON "RTO database".vehicles(vehicle_class);
+CREATE INDEX IF NOT EXISTS idx_vehicles_owner ON "RTO database".vehicles(owner_citizen_id);
+CREATE INDEX IF NOT EXISTS idx_vehicles_status ON "RTO database".vehicles(status);
 
 -- ====================================================================
 -- TABLE 3: vehicle_documents (RC, Fitness, Insurance, PUC)
 -- ====================================================================
-CREATE TABLE vehicle_documents (
+CREATE TABLE "RTO database".vehicle_documents (
     id VARCHAR(36) PRIMARY KEY,
-    vehicle_id VARCHAR(36) NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+    vehicle_id VARCHAR(36) NOT NULL REFERENCES "RTO database".vehicles(id) ON DELETE CASCADE,
     document_type VARCHAR(32) NOT NULL,
     document_number VARCHAR(64) NOT NULL,
     file_reference VARCHAR(255) NOT NULL,
@@ -79,16 +84,16 @@ CREATE TABLE vehicle_documents (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_vdocs_vehicle_id ON vehicle_documents(vehicle_id);
-CREATE INDEX idx_vdocs_type ON vehicle_documents(document_type);
-CREATE INDEX idx_vdocs_expiry ON vehicle_documents(expiry_date);
+CREATE INDEX IF NOT EXISTS idx_vdocs_vehicle_id ON "RTO database".vehicle_documents(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_vdocs_type ON "RTO database".vehicle_documents(document_type);
+CREATE INDEX IF NOT EXISTS idx_vdocs_expiry ON "RTO database".vehicle_documents(expiry_date);
 
 -- ====================================================================
 -- TABLE 4: verification_requests (Vahan Verification Retry Queue)
 -- ====================================================================
-CREATE TABLE verification_requests (
+CREATE TABLE "RTO database".verification_requests (
     id VARCHAR(36) PRIMARY KEY,
-    vehicle_id VARCHAR(36) NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+    vehicle_id VARCHAR(36) NOT NULL REFERENCES "RTO database".vehicles(id) ON DELETE CASCADE,
     status VARCHAR(32) NOT NULL DEFAULT 'PENDING_RETRY',
     retry_count INTEGER DEFAULT 0,
     max_retries INTEGER DEFAULT 5,
@@ -99,14 +104,14 @@ CREATE TABLE verification_requests (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_vreq_vehicle_id ON verification_requests(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_vreq_vehicle_id ON "RTO database".verification_requests(vehicle_id);
 
 -- ====================================================================
 -- TABLE 5: rental_listings (Rate Cards & APMC Pickup Locations)
 -- ====================================================================
-CREATE TABLE rental_listings (
+CREATE TABLE "RTO database".rental_listings (
     id VARCHAR(36) PRIMARY KEY,
-    vehicle_id VARCHAR(36) UNIQUE NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+    vehicle_id VARCHAR(36) UNIQUE NOT NULL REFERENCES "RTO database".vehicles(id) ON DELETE CASCADE,
     owner_citizen_id VARCHAR(64) NOT NULL,
     rate_per_hour DOUBLE PRECISION NOT NULL DEFAULT 150.0,
     rate_per_day DOUBLE PRECISION NOT NULL DEFAULT 1200.0,
@@ -120,33 +125,33 @@ CREATE TABLE rental_listings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_listings_vehicle_id ON rental_listings(vehicle_id);
-CREATE INDEX idx_listings_owner ON rental_listings(owner_citizen_id);
-CREATE INDEX idx_listings_status ON rental_listings(status);
+CREATE INDEX IF NOT EXISTS idx_listings_vehicle_id ON "RTO database".rental_listings(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_listings_owner ON "RTO database".rental_listings(owner_citizen_id);
+CREATE INDEX IF NOT EXISTS idx_listings_status ON "RTO database".rental_listings(status);
 
 -- ====================================================================
 -- TABLE 6: availability_windows (Time-slot Reservation Locks)
 -- ====================================================================
-CREATE TABLE availability_windows (
+CREATE TABLE "RTO database".availability_windows (
     id VARCHAR(36) PRIMARY KEY,
-    listing_id VARCHAR(36) NOT NULL REFERENCES rental_listings(id) ON DELETE CASCADE,
+    listing_id VARCHAR(36) NOT NULL REFERENCES "RTO database".rental_listings(id) ON DELETE CASCADE,
     start_time TIMESTAMP WITH TIME ZONE NOT NULL,
     end_time TIMESTAMP WITH TIME ZONE NOT NULL,
     is_available BOOLEAN DEFAULT TRUE,
     notes VARCHAR(255)
 );
 
-CREATE INDEX idx_avail_listing_id ON availability_windows(listing_id);
-CREATE INDEX idx_avail_start ON availability_windows(start_time);
-CREATE INDEX idx_avail_end ON availability_windows(end_time);
+CREATE INDEX IF NOT EXISTS idx_avail_listing_id ON "RTO database".availability_windows(listing_id);
+CREATE INDEX IF NOT EXISTS idx_avail_start ON "RTO database".availability_windows(start_time);
+CREATE INDEX IF NOT EXISTS idx_avail_end ON "RTO database".availability_windows(end_time);
 
 -- ====================================================================
 -- TABLE 7: bookings (Reservations, Escrow Holds & Financials)
 -- ====================================================================
-CREATE TABLE bookings (
+CREATE TABLE "RTO database".bookings (
     id VARCHAR(36) PRIMARY KEY,
     booking_ref VARCHAR(32) UNIQUE NOT NULL,
-    vehicle_id VARCHAR(36) NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+    vehicle_id VARCHAR(36) NOT NULL REFERENCES "RTO database".vehicles(id) ON DELETE CASCADE,
     renter_citizen_id VARCHAR(64) NOT NULL,
     renter_name VARCHAR(100) NOT NULL,
     renter_kyc_tier VARCHAR(16) NOT NULL,
@@ -171,19 +176,19 @@ CREATE TABLE bookings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_bookings_ref ON bookings(booking_ref);
-CREATE INDEX idx_bookings_vehicle ON bookings(vehicle_id);
-CREATE INDEX idx_bookings_renter ON bookings(renter_citizen_id);
-CREATE INDEX idx_bookings_status ON bookings(status);
-CREATE INDEX idx_bookings_start ON bookings(start_time);
-CREATE INDEX idx_bookings_end ON bookings(end_time);
+CREATE INDEX IF NOT EXISTS idx_bookings_ref ON "RTO database".bookings(booking_ref);
+CREATE INDEX IF NOT EXISTS idx_bookings_vehicle ON "RTO database".bookings(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_renter ON "RTO database".bookings(renter_citizen_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_status ON "RTO database".bookings(status);
+CREATE INDEX IF NOT EXISTS idx_bookings_start ON "RTO database".bookings(start_time);
+CREATE INDEX IF NOT EXISTS idx_bookings_end ON "RTO database".bookings(end_time);
 
 -- ====================================================================
 -- TABLE 8: booking_sagas (Distributed Saga Coordination)
 -- ====================================================================
-CREATE TABLE booking_sagas (
+CREATE TABLE "RTO database".booking_sagas (
     id VARCHAR(36) PRIMARY KEY,
-    booking_id VARCHAR(36) UNIQUE NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    booking_id VARCHAR(36) UNIQUE NOT NULL REFERENCES "RTO database".bookings(id) ON DELETE CASCADE,
     saga_state VARCHAR(32) NOT NULL DEFAULT 'STARTED',
     deadline TIMESTAMP WITH TIME ZONE NOT NULL,
     compensation_reason VARCHAR(255),
@@ -194,9 +199,9 @@ CREATE TABLE booking_sagas (
 -- ====================================================================
 -- TABLE 9: handover_records (Odometer, Fuel & Return Settlement)
 -- ====================================================================
-CREATE TABLE handover_records (
+CREATE TABLE "RTO database".handover_records (
     id VARCHAR(36) PRIMARY KEY,
-    booking_id VARCHAR(36) NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    booking_id VARCHAR(36) NOT NULL REFERENCES "RTO database".bookings(id) ON DELETE CASCADE,
     handover_type VARCHAR(16) NOT NULL,
     recorded_by_citizen_id VARCHAR(64) NOT NULL,
     odometer_reading DOUBLE PRECISION NOT NULL,
@@ -208,12 +213,12 @@ CREATE TABLE handover_records (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_handover_booking_id ON handover_records(booking_id);
+CREATE INDEX IF NOT EXISTS idx_handover_booking_id ON "RTO database".handover_records(booking_id);
 
 -- ====================================================================
 -- TABLE 10: outbox_events (Transactional Event Dispatch)
 -- ====================================================================
-CREATE TABLE outbox_events (
+CREATE TABLE "RTO database".outbox_events (
     id VARCHAR(36) PRIMARY KEY,
     event_type VARCHAR(64) NOT NULL,
     aggregate_type VARCHAR(32) NOT NULL,
@@ -226,13 +231,13 @@ CREATE TABLE outbox_events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_outbox_pub ON outbox_events(published);
-CREATE INDEX idx_outbox_type ON outbox_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_outbox_pub ON "RTO database".outbox_events(published);
+CREATE INDEX IF NOT EXISTS idx_outbox_type ON "RTO database".outbox_events(event_type);
 
 -- ====================================================================
 -- TABLE 11: audit_events (Compliance & Security Audit Trail)
 -- ====================================================================
-CREATE TABLE audit_events (
+CREATE TABLE "RTO database".audit_events (
     id VARCHAR(36) PRIMARY KEY,
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     actor_id VARCHAR(64) NOT NULL,
@@ -244,14 +249,14 @@ CREATE TABLE audit_events (
     correlation_id VARCHAR(64)
 );
 
-CREATE INDEX idx_audit_time ON audit_events(timestamp);
-CREATE INDEX idx_audit_actor ON audit_events(actor_id);
-CREATE INDEX idx_audit_action ON audit_events(action);
+CREATE INDEX IF NOT EXISTS idx_audit_time ON "RTO database".audit_events(timestamp);
+CREATE INDEX IF NOT EXISTS idx_audit_actor ON "RTO database".audit_events(actor_id);
+CREATE INDEX IF NOT EXISTS idx_audit_action ON "RTO database".audit_events(action);
 
 -- ====================================================================
--- SEED DATA: Demo Users & Fleet
+-- SEED DATA: Demo Users & Fleet inside "RTO database"
 -- ====================================================================
-INSERT INTO users (id, name, email, phone, password_hash, role, kyc_tier, driving_licence_classes)
+INSERT INTO "RTO database".users (id, name, email, phone, password_hash, role, kyc_tier, driving_licence_classes)
 VALUES 
 ('CIT-OWNER-001', 'Ramesh Patil', 'ramesh@agrilink.in', '+91 98765 43210', 'd79b9b0068735222956cfb810842db2371cf78696ec06093cb49a029db9ab8168673f4e24eb62f5bca94957e8eb248e8da8d75ea9c6a1e36c2e391307b22d1ad', 'VEHICLE_OWNER', 'T2', 'LMV,HMV,TRACTOR'),
 ('CIT-RENTER-002', 'Priya Sharma', 'priya@agrilink.in', '+91 98450 11223', 'a587ce381a17937746ae0453e0d86940a0ef19d2aa7a6c525f0f3747d7c6adabff3dbfb687c71ba76319bc30d32c5890e0b3d5b06d44a0e98031d9b3e157297e', 'RENTER', 'T2', 'LMV,MCWG'),
@@ -260,7 +265,7 @@ VALUES
 ON CONFLICT (email) DO NOTHING;
 
 -- Seed Sample Vehicles
-INSERT INTO vehicles (id, registration_number, vehicle_class, make_model, capacity_kg, seating_capacity, fuel_type, owner_citizen_id, owner_name, status, verification_status)
+INSERT INTO "RTO database".vehicles (id, registration_number, vehicle_class, make_model, capacity_kg, seating_capacity, fuel_type, owner_citizen_id, owner_name, status, verification_status)
 VALUES
 ('veh-ace-001', 'KA-04-MK-1234', 'LIGHT_COMMERCIAL', 'Tata Ace Gold Plus (Mini Truck)', 750.0, 2, 'DIESEL', 'CIT-OWNER-001', 'Ramesh Patil', 'AVAILABLE', 'VERIFIED'),
 ('veh-trac-002', 'KA-04-MK-9988', 'TRACTOR', 'Mahindra 575 DI Sarpanch (45 HP)', 2500.0, 1, 'DIESEL', 'CIT-OWNER-001', 'Ramesh Patil', 'AVAILABLE', 'VERIFIED'),
@@ -268,7 +273,7 @@ VALUES
 ON CONFLICT (registration_number) DO NOTHING;
 
 -- Seed Rental Listings for Vehicles
-INSERT INTO rental_listings (id, vehicle_id, owner_citizen_id, rate_per_hour, rate_per_day, rate_per_km, security_deposit, pickup_location, status)
+INSERT INTO "RTO database".rental_listings (id, vehicle_id, owner_citizen_id, rate_per_hour, rate_per_day, rate_per_km, security_deposit, pickup_location, status)
 VALUES
 ('list-001', 'veh-ace-001', 'CIT-OWNER-001', 150.0, 1200.0, 12.0, 2000.0, 'Hebbal APMC Market Yard, Bengaluru', 'ACTIVE'),
 ('list-002', 'veh-trac-002', 'CIT-OWNER-001', 250.0, 2200.0, 25.0, 3500.0, 'Devanahalli Farmer Produce Hub, Bengaluru Rural', 'ACTIVE'),
