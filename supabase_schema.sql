@@ -3,13 +3,26 @@
 -- Supabase (PostgreSQL) Production Schema & Seed Data
 -- ====================================================================
 
--- 1. Enable UUID Extension (Optional convenience)
+-- 1. Enable UUID Extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. Drop existing conflicting tables cleanly if they exist
+DROP TABLE IF EXISTS audit_events CASCADE;
+DROP TABLE IF EXISTS outbox_events CASCADE;
+DROP TABLE IF EXISTS handover_records CASCADE;
+DROP TABLE IF EXISTS booking_sagas CASCADE;
+DROP TABLE IF EXISTS bookings CASCADE;
+DROP TABLE IF EXISTS availability_windows CASCADE;
+DROP TABLE IF EXISTS rental_listings CASCADE;
+DROP TABLE IF EXISTS verification_requests CASCADE;
+DROP TABLE IF EXISTS vehicle_documents CASCADE;
+DROP TABLE IF EXISTS vehicles CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
 
 -- ====================================================================
 -- TABLE 1: users (Citizen Accounts, Custom Auth & Biometrics)
 -- ====================================================================
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
     id VARCHAR(64) PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
     email VARCHAR(120) UNIQUE NOT NULL,
@@ -24,12 +37,12 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX idx_users_email ON users(email);
 
 -- ====================================================================
 -- TABLE 2: vehicles (Commercial Fleet Registry)
 -- ====================================================================
-CREATE TABLE IF NOT EXISTS vehicles (
+CREATE TABLE vehicles (
     id VARCHAR(36) PRIMARY KEY,
     registration_number VARCHAR(32) UNIQUE NOT NULL,
     vehicle_class VARCHAR(32) NOT NULL,
@@ -39,22 +52,22 @@ CREATE TABLE IF NOT EXISTS vehicles (
     fuel_type VARCHAR(20) NOT NULL DEFAULT 'DIESEL',
     owner_citizen_id VARCHAR(64) NOT NULL,
     owner_name VARCHAR(100) NOT NULL,
-    status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
-    verification_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
-    verification_reason TEXT,
+    status VARCHAR(32) NOT NULL DEFAULT 'AVAILABLE',
+    verification_status VARCHAR(32) NOT NULL DEFAULT 'VERIFIED',
+    verification_reason TEXT DEFAULT 'Vahan registry verified',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_vehicles_reg ON vehicles(registration_number);
-CREATE INDEX IF NOT EXISTS idx_vehicles_class ON vehicles(vehicle_class);
-CREATE INDEX IF NOT EXISTS idx_vehicles_owner ON vehicles(owner_citizen_id);
-CREATE INDEX IF NOT EXISTS idx_vehicles_status ON vehicles(status);
+CREATE INDEX idx_vehicles_reg ON vehicles(registration_number);
+CREATE INDEX idx_vehicles_class ON vehicles(vehicle_class);
+CREATE INDEX idx_vehicles_owner ON vehicles(owner_citizen_id);
+CREATE INDEX idx_vehicles_status ON vehicles(status);
 
 -- ====================================================================
 -- TABLE 3: vehicle_documents (RC, Fitness, Insurance, PUC)
 -- ====================================================================
-CREATE TABLE IF NOT EXISTS vehicle_documents (
+CREATE TABLE vehicle_documents (
     id VARCHAR(36) PRIMARY KEY,
     vehicle_id VARCHAR(36) NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
     document_type VARCHAR(32) NOT NULL,
@@ -66,14 +79,14 @@ CREATE TABLE IF NOT EXISTS vehicle_documents (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_vdocs_vehicle_id ON vehicle_documents(vehicle_id);
-CREATE INDEX IF NOT EXISTS idx_vdocs_type ON vehicle_documents(document_type);
-CREATE INDEX IF NOT EXISTS idx_vdocs_expiry ON vehicle_documents(expiry_date);
+CREATE INDEX idx_vdocs_vehicle_id ON vehicle_documents(vehicle_id);
+CREATE INDEX idx_vdocs_type ON vehicle_documents(document_type);
+CREATE INDEX idx_vdocs_expiry ON vehicle_documents(expiry_date);
 
 -- ====================================================================
 -- TABLE 4: verification_requests (Vahan Verification Retry Queue)
 -- ====================================================================
-CREATE TABLE IF NOT EXISTS verification_requests (
+CREATE TABLE verification_requests (
     id VARCHAR(36) PRIMARY KEY,
     vehicle_id VARCHAR(36) NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
     status VARCHAR(32) NOT NULL DEFAULT 'PENDING_RETRY',
@@ -86,12 +99,12 @@ CREATE TABLE IF NOT EXISTS verification_requests (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_vreq_vehicle_id ON verification_requests(vehicle_id);
+CREATE INDEX idx_vreq_vehicle_id ON verification_requests(vehicle_id);
 
 -- ====================================================================
 -- TABLE 5: rental_listings (Rate Cards & APMC Pickup Locations)
 -- ====================================================================
-CREATE TABLE IF NOT EXISTS rental_listings (
+CREATE TABLE rental_listings (
     id VARCHAR(36) PRIMARY KEY,
     vehicle_id VARCHAR(36) UNIQUE NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
     owner_citizen_id VARCHAR(64) NOT NULL,
@@ -107,14 +120,14 @@ CREATE TABLE IF NOT EXISTS rental_listings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_listings_vehicle_id ON rental_listings(vehicle_id);
-CREATE INDEX IF NOT EXISTS idx_listings_owner ON rental_listings(owner_citizen_id);
-CREATE INDEX IF NOT EXISTS idx_listings_status ON rental_listings(status);
+CREATE INDEX idx_listings_vehicle_id ON rental_listings(vehicle_id);
+CREATE INDEX idx_listings_owner ON rental_listings(owner_citizen_id);
+CREATE INDEX idx_listings_status ON rental_listings(status);
 
 -- ====================================================================
 -- TABLE 6: availability_windows (Time-slot Reservation Locks)
 -- ====================================================================
-CREATE TABLE IF NOT EXISTS availability_windows (
+CREATE TABLE availability_windows (
     id VARCHAR(36) PRIMARY KEY,
     listing_id VARCHAR(36) NOT NULL REFERENCES rental_listings(id) ON DELETE CASCADE,
     start_time TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -123,14 +136,14 @@ CREATE TABLE IF NOT EXISTS availability_windows (
     notes VARCHAR(255)
 );
 
-CREATE INDEX IF NOT EXISTS idx_avail_listing_id ON availability_windows(listing_id);
-CREATE INDEX IF NOT EXISTS idx_avail_start ON availability_windows(start_time);
-CREATE INDEX IF NOT EXISTS idx_avail_end ON availability_windows(end_time);
+CREATE INDEX idx_avail_listing_id ON availability_windows(listing_id);
+CREATE INDEX idx_avail_start ON availability_windows(start_time);
+CREATE INDEX idx_avail_end ON availability_windows(end_time);
 
 -- ====================================================================
 -- TABLE 7: bookings (Reservations, Escrow Holds & Financials)
 -- ====================================================================
-CREATE TABLE IF NOT EXISTS bookings (
+CREATE TABLE bookings (
     id VARCHAR(36) PRIMARY KEY,
     booking_ref VARCHAR(32) UNIQUE NOT NULL,
     vehicle_id VARCHAR(36) NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
@@ -158,17 +171,17 @@ CREATE TABLE IF NOT EXISTS bookings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_bookings_ref ON bookings(booking_ref);
-CREATE INDEX IF NOT EXISTS idx_bookings_vehicle ON bookings(vehicle_id);
-CREATE INDEX IF NOT EXISTS idx_bookings_renter ON bookings(renter_citizen_id);
-CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
-CREATE INDEX IF NOT EXISTS idx_bookings_start ON bookings(start_time);
-CREATE INDEX IF NOT EXISTS idx_bookings_end ON bookings(end_time);
+CREATE INDEX idx_bookings_ref ON bookings(booking_ref);
+CREATE INDEX idx_bookings_vehicle ON bookings(vehicle_id);
+CREATE INDEX idx_bookings_renter ON bookings(renter_citizen_id);
+CREATE INDEX idx_bookings_status ON bookings(status);
+CREATE INDEX idx_bookings_start ON bookings(start_time);
+CREATE INDEX idx_bookings_end ON bookings(end_time);
 
 -- ====================================================================
 -- TABLE 8: booking_sagas (Distributed Saga Coordination)
 -- ====================================================================
-CREATE TABLE IF NOT EXISTS booking_sagas (
+CREATE TABLE booking_sagas (
     id VARCHAR(36) PRIMARY KEY,
     booking_id VARCHAR(36) UNIQUE NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
     saga_state VARCHAR(32) NOT NULL DEFAULT 'STARTED',
@@ -181,7 +194,7 @@ CREATE TABLE IF NOT EXISTS booking_sagas (
 -- ====================================================================
 -- TABLE 9: handover_records (Odometer, Fuel & Return Settlement)
 -- ====================================================================
-CREATE TABLE IF NOT EXISTS handover_records (
+CREATE TABLE handover_records (
     id VARCHAR(36) PRIMARY KEY,
     booking_id VARCHAR(36) NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
     handover_type VARCHAR(16) NOT NULL,
@@ -195,12 +208,12 @@ CREATE TABLE IF NOT EXISTS handover_records (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_handover_booking_id ON handover_records(booking_id);
+CREATE INDEX idx_handover_booking_id ON handover_records(booking_id);
 
 -- ====================================================================
 -- TABLE 10: outbox_events (Transactional Event Dispatch)
 -- ====================================================================
-CREATE TABLE IF NOT EXISTS outbox_events (
+CREATE TABLE outbox_events (
     id VARCHAR(36) PRIMARY KEY,
     event_type VARCHAR(64) NOT NULL,
     aggregate_type VARCHAR(32) NOT NULL,
@@ -213,13 +226,13 @@ CREATE TABLE IF NOT EXISTS outbox_events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_outbox_pub ON outbox_events(published);
-CREATE INDEX IF NOT EXISTS idx_outbox_type ON outbox_events(event_type);
+CREATE INDEX idx_outbox_pub ON outbox_events(published);
+CREATE INDEX idx_outbox_type ON outbox_events(event_type);
 
 -- ====================================================================
 -- TABLE 11: audit_events (Compliance & Security Audit Trail)
 -- ====================================================================
-CREATE TABLE IF NOT EXISTS audit_events (
+CREATE TABLE audit_events (
     id VARCHAR(36) PRIMARY KEY,
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     actor_id VARCHAR(64) NOT NULL,
@@ -231,12 +244,12 @@ CREATE TABLE IF NOT EXISTS audit_events (
     correlation_id VARCHAR(64)
 );
 
-CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_events(timestamp);
-CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_events(actor_id);
-CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_events(action);
+CREATE INDEX idx_audit_time ON audit_events(timestamp);
+CREATE INDEX idx_audit_actor ON audit_events(actor_id);
+CREATE INDEX idx_audit_action ON audit_events(action);
 
 -- ====================================================================
--- SEED DATA: Default Demo Accounts (Password: [name]123)
+-- SEED DATA: Demo Users & Fleet
 -- ====================================================================
 INSERT INTO users (id, name, email, phone, password_hash, role, kyc_tier, driving_licence_classes)
 VALUES 
@@ -245,3 +258,19 @@ VALUES
 ('CIT-DELIVERY-003', 'Suresh Gowda', 'suresh@agrilink.in', '+91 97312 34567', '4e58a74e548ab03b609c95d9fb9c00b0e515d48da142fc69fcf72834b6e5114aa75cbe61c9ecba5db22fc539dfd6666ebf7b1968da9d8f99e829399eb2f1db12', 'DELIVERY_PERSON', 'T2', 'LMV,HMV'),
 ('CIT-ADMIN-001', 'Officer Rao', 'admin@agrilink.in', '+91 99000 88776', 'b18be574aa91ad7a5d933e144d18ecba54bb2001e9d1bf7b11d9f485db1f94d93ee14092b3c2bb023d508930438b4f65809f6e6aa45532d8471e8d98d89a263d', 'ADMIN', 'T3', 'LMV,HMV,TRACTOR,MCWG')
 ON CONFLICT (email) DO NOTHING;
+
+-- Seed Sample Vehicles
+INSERT INTO vehicles (id, registration_number, vehicle_class, make_model, capacity_kg, seating_capacity, fuel_type, owner_citizen_id, owner_name, status, verification_status)
+VALUES
+('veh-ace-001', 'KA-04-MK-1234', 'LIGHT_COMMERCIAL', 'Tata Ace Gold Plus (Mini Truck)', 750.0, 2, 'DIESEL', 'CIT-OWNER-001', 'Ramesh Patil', 'AVAILABLE', 'VERIFIED'),
+('veh-trac-002', 'KA-04-MK-9988', 'TRACTOR', 'Mahindra 575 DI Sarpanch (45 HP)', 2500.0, 1, 'DIESEL', 'CIT-OWNER-001', 'Ramesh Patil', 'AVAILABLE', 'VERIFIED'),
+('veh-ape-003', 'KA-05-EV-4411', 'AUTO_RICKSHAW', 'Piaggio Ape Auto Plus (Cargo 500kg)', 550.0, 1, 'CNG', 'CIT-OWNER-001', 'Ramesh Patil', 'AVAILABLE', 'VERIFIED')
+ON CONFLICT (registration_number) DO NOTHING;
+
+-- Seed Rental Listings for Vehicles
+INSERT INTO rental_listings (id, vehicle_id, owner_citizen_id, rate_per_hour, rate_per_day, rate_per_km, security_deposit, pickup_location, status)
+VALUES
+('list-001', 'veh-ace-001', 'CIT-OWNER-001', 150.0, 1200.0, 12.0, 2000.0, 'Hebbal APMC Market Yard, Bengaluru', 'ACTIVE'),
+('list-002', 'veh-trac-002', 'CIT-OWNER-001', 250.0, 2200.0, 25.0, 3500.0, 'Devanahalli Farmer Produce Hub, Bengaluru Rural', 'ACTIVE'),
+('list-003', 'veh-ape-003', 'CIT-OWNER-001', 90.0, 750.0, 9.0, 1200.0, 'Yeshwanthpur Wholesale Market, Bengaluru', 'ACTIVE')
+ON CONFLICT (vehicle_id) DO NOTHING;
