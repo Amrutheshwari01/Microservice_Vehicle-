@@ -5,6 +5,8 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__f
 _DEFAULT_STORE = os.path.join(_REPO_ROOT, "encrypted_filestore")
 _DEFAULT_DB = f"sqlite:///{os.path.join(_REPO_ROOT, 'rto_service.db').replace(os.sep, '/')}"
 
+_ENV_FILE = os.path.join(_REPO_ROOT, ".env")
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AgriLink Commercial Fleet & Logistics Platform"
     VERSION: str = "1.0.0"
@@ -35,6 +37,6 @@ class Settings(BaseSettings):
     BOOKING_HOLD_TIMEOUT_SECONDS: int = 60
     
     class Config:
-        env_file = ".env"
+        env_file = _ENV_FILE if os.path.exists(_ENV_FILE) else ".env"
 
 settings = Settings()
