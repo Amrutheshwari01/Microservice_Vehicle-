@@ -1,0 +1,34 @@
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies required by OpenCV
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY backend/requirements.txt /app/requirements.txt
+
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copy backend application
+COPY backend/ /app/backend/
+
+# Copy frontend assets
+COPY frontend/ /app/frontend/
+
+# Create encrypted document storage directory
+RUN mkdir -p /app/encrypted_filestore
+
+WORKDIR /app/backend
+
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8000
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
