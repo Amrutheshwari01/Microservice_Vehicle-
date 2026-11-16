@@ -3,13 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AgriLink Fleet & Vehicle Registry Platform</title>
+  <title>AgriLink — Commercial Fleet & Logistics Platform</title>
   <link rel="stylesheet" href="/static/css/styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+
+  <!-- Top Announcement Bar (Guest Banner) -->
+  <div id="top-guest-banner" class="top-banner" style="display: none;">
+    <div class="top-banner-content">
+      <span>✨ Welcome to AgriLink! You are browsing as a <strong>Guest</strong>.</span>
+      <button class="top-banner-link" onclick="openAuthModal('signup')">Create your account to book vehicles &amp; receive ₹30,000 wallet credit →</button>
+    </div>
+  </div>
 
   <!-- Header -->
   <header>
@@ -17,49 +25,61 @@
       <div class="brand">
         <div class="brand-icon">🚛</div>
         <div>
-          <div class="brand-title" data-i18n="brand_title">AgriLink Fleet & Vehicle Registry</div>
-          <div class="brand-subtitle" data-i18n="brand_sub">Commercial Fleet, Rental & Logistics Platform</div>
+          <div class="brand-title" data-i18n="brand_title">AgriLink Fleet</div>
+          <div class="brand-subtitle" data-i18n="brand_sub">Commercial Fleet, Rentals &amp; Logistics Platform</div>
         </div>
       </div>
 
       <div class="header-controls">
-        <!-- Live Wallet Balance -->
-        <div class="wallet-badge">
-          <span>💳</span>
-          <span style="font-size: 0.78rem; text-transform: uppercase;">Wallet:</span>
+        <!-- Live Wallet Balance (Only visible when signed in) -->
+        <div id="wallet-badge-widget" class="wallet-badge" style="display: none;" title="Your available platform wallet balance">
+          <span class="wallet-icon">💳</span>
+          <span class="wallet-label">Wallet:</span>
           <span id="wallet-balance-display">₹30,000</span>
         </div>
 
-        <!-- Current User Profile / Logged In State -->
-        <div id="user-profile-widget" class="user-profile-badge" onclick="openAuthModal('signin')">
-          <div class="user-avatar" id="user-avatar-initials">RP</div>
+        <!-- Current User Profile Pill -->
+        <div id="user-profile-widget" class="user-profile-badge" style="display: none;" onclick="openAuthModal('signin')" title="View account details">
+          <img id="user-avatar-img" class="user-avatar-img" style="display: none;" alt="Face Avatar">
+          <div class="user-avatar" id="user-avatar-initials">GU</div>
           <div>
-            <div style="font-weight: 600; font-size: 0.82rem; line-height: 1.1;" id="user-display-name">Ramesh Patil</div>
-            <div style="font-size: 0.72rem; color: var(--text-muted);" id="user-display-role">Vehicle Owner · KYC T2</div>
+            <div id="user-display-name" class="user-name">User Name</div>
+            <div id="user-display-role" class="user-role">Renter</div>
           </div>
         </div>
 
-        <!-- Auth Action Button (Sign In / Register or Logout) -->
-        <button id="auth-main-btn" class="btn btn-outline btn-sm" onclick="openAuthModal('signin')">
-          Sign In / Sign Up
-        </button>
+        <!-- Logged Out Auth Buttons -->
+        <div id="logged-out-controls" class="auth-buttons-group">
+          <button class="btn btn-outline btn-sm" onclick="openAuthModal('signin')">
+            Sign In
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="openAuthModal('facelogin')">
+            👤 Face Login
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="openAuthModal('signup')">
+            ✨ Create Account
+          </button>
+        </div>
 
+        <!-- Sign Out Button -->
         <button id="logout-btn" class="btn btn-secondary btn-sm" style="display: none;" onclick="handleSignOut()">
           Sign Out
         </button>
 
-        <!-- Quick Demo Profiles Switcher -->
-        <div style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem;">
-          <select id="actor-select" class="lang-select" style="max-width: 170px; font-size: 0.8rem;" title="Switch demo accounts or custom user">
-            <option value="CIT-OWNER-001">Ramesh Patil (Owner)</option>
-            <option value="CIT-RENTER-002">Priya Sharma (Renter)</option>
-            <option value="CIT-DELIVERY-003">Suresh Gowda (Delivery)</option>
-            <option value="CIT-ADMIN-001">Officer Rao (Admin)</option>
+        <!-- Quick Demo Switcher -->
+        <div class="demo-switcher-wrap" title="Quickly switch to a pre-configured demo account">
+          <span class="demo-label">Demo:</span>
+          <select id="actor-select" class="demo-select">
+            <option value="" disabled selected>Select Demo Account</option>
+            <option value="CIT-OWNER-001">Ramesh Patil (Fleet Owner)</option>
+            <option value="CIT-RENTER-002">Priya Sharma (Renter / Customer)</option>
+            <option value="CIT-DELIVERY-003">Suresh Gowda (Logistics Driver)</option>
+            <option value="CIT-ADMIN-001">Officer Rao (Admin / Compliance)</option>
           </select>
         </div>
 
         <!-- Language Selector -->
-        <select id="lang-select" class="lang-select">
+        <select id="lang-select" class="lang-select" title="Change display language">
           <option value="en">English (EN)</option>
           <option value="hi">हिंदी (HI)</option>
           <option value="kn">ಕನ್ನಡ (KN)</option>
@@ -68,92 +88,128 @@
     </div>
   </header>
 
-  <!-- Navigation Tabs -->
+  <!-- Navigation Tabs Bar -->
   <div class="tabs-bar">
     <div class="tabs-container">
       <button class="tab-btn active" data-target="panel-fleet">
-        <span>🔍</span> <span data-i18n="tab_fleet">Fleet Search & Booking</span>
+        <span class="tab-icon">🔍</span>
+        <span data-i18n="tab_fleet">Fleet Marketplace</span>
       </button>
       <button class="tab-btn" data-target="panel-owner">
-        <span>📋</span> <span data-i18n="tab_owner">Vehicle Owner Portal</span>
+        <span class="tab-icon">📋</span>
+        <span data-i18n="tab_owner">Vehicle Owner Portal</span>
       </button>
       <button class="tab-btn" data-target="panel-agrilink">
-        <span>📦</span> <span data-i18n="tab_agrilink">AgriLink Delivery Dispatch</span>
+        <span class="tab-icon">📦</span>
+        <span data-i18n="tab_agrilink">Logistics &amp; Dispatch</span>
       </button>
       <button class="tab-btn" data-target="panel-admin">
-        <span>🛡️</span> <span data-i18n="tab_admin">Admin & Official Console</span>
+        <span class="tab-icon">🛡️</span>
+        <span data-i18n="tab_admin">Safety &amp; Compliance Console</span>
       </button>
       <button class="tab-btn" data-target="panel-hub">
-        <span>⚡</span> <span data-i18n="tab_hub">Microservice Integration Hub</span>
+        <span class="tab-icon">⚡</span>
+        <span data-i18n="tab_hub">Platform Activity &amp; Hub</span>
       </button>
     </div>
   </div>
 
   <!-- Main Content -->
   <main>
-    <!-- ==================== PANEL 1: FLEET SEARCH & BOOKING ==================== -->
+    <!-- ==================== PANEL 1: FLEET MARKETPLACE ==================== -->
     <div id="panel-fleet" class="panel active">
-      <!-- Search Bar with Voice Input -->
-      <div class="search-box-wrapper">
-        <span style="font-size: 1.25rem; color: var(--text-muted); margin-left: 0.25rem;">🔎</span>
-        <input type="text" id="fleet-search-input" class="search-input" placeholder="Search vehicles by make, class, capacity or APMC market yard (or click mic)..." data-i18n-placeholder="search_placeholder">
-        
-        <button id="voice-search-btn" class="voice-btn" title="Click to speak search query" data-i18n-title="voice_prompt">
-          🎙️
-        </button>
+      <!-- Modern Hero Section -->
+      <section class="hero-section">
+        <div class="hero-content">
+          <div class="hero-badge">🌾 India's On-Demand Agri-Logistics &amp; Commercial Fleet Network</div>
+          <h1 class="hero-title">Rent Commercial &amp; Agricultural Vehicles Instantly</h1>
+          <p class="hero-subtitle">
+            Verified mini-trucks, tractors, and cargo haulers across Karnataka APMC market yards. Guaranteed zero double-booking, protected digital wallet holds, and transparent pricing.
+          </p>
+          <div class="hero-highlights">
+            <div class="highlight-item"><span class="highlight-check">✓</span> Official Vahan Registry Verified</div>
+            <div class="highlight-item"><span class="highlight-check">✓</span> 100% Insured Fleet</div>
+            <div class="highlight-item"><span class="highlight-check">✓</span> Instant Calendar Lock</div>
+            <div class="highlight-item"><span class="highlight-check">✓</span> Automated Deposit Refund</div>
+          </div>
+        </div>
+      </section>
 
-        <button id="do-search-btn" class="btn btn-primary" data-i18n="search_btn">Search Fleet</button>
-      </div>
+      <!-- Search & Filters Container -->
+      <div class="search-filter-card">
+        <div class="search-box-wrapper">
+          <span class="search-icon">🔎</span>
+          <input type="text" id="fleet-search-input" class="search-input" placeholder="Search by location (e.g. 'Hebbal APMC', 'Devanahalli'), vehicle make, or capacity..." data-i18n-placeholder="search_placeholder">
+          
+          <button id="voice-search-btn" class="voice-btn" title="Speak vehicle query in English, Hindi, or Kannada" data-i18n-title="voice_prompt">
+            🎙️
+          </button>
 
-      <!-- Filters Row -->
-      <div class="card" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem;">
-        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <label style="font-size: 0.85rem; font-weight: 600;">Class:</label>
-            <select id="filter-class" class="form-control" style="width: auto; padding: 0.4rem 0.6rem;">
-              <option value="">All Vehicle Classes</option>
+          <button id="do-search-btn" class="btn btn-primary" data-i18n="search_btn">
+            Search Vehicles
+          </button>
+        </div>
+
+        <div class="filters-row">
+          <div class="filter-item">
+            <label class="filter-label">Vehicle Class:</label>
+            <select id="filter-class" class="form-control form-control-sm">
+              <option value="">All Vehicle Categories</option>
               <option value="LIGHT_COMMERCIAL">Light Commercial (Tata Ace, Bolero Maxi)</option>
-              <option value="TRACTOR">Agricultural Tractors</option>
-              <option value="HEAVY_COMMERCIAL">Heavy Commercial Trucks</option>
-              <option value="AUTO_RICKSHAW">Cargo Auto Rickshaw</option>
+              <option value="TRACTOR">Agricultural Tractors (Mahindra, Swaraj)</option>
+              <option value="HEAVY_COMMERCIAL">Heavy Commercial Cargo Trucks</option>
+              <option value="AUTO_RICKSHAW">Cargo 3-Wheeler Auto (Piaggio Ape)</option>
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <label style="font-size: 0.85rem; font-weight: 600;">Min Capacity:</label>
-            <input type="number" id="filter-capacity" class="form-control" placeholder="kg" style="width: 100px; padding: 0.4rem 0.6rem;">
+          <div class="filter-item">
+            <label class="filter-label">Min Payload (kg):</label>
+            <input type="number" id="filter-capacity" class="form-control form-control-sm" placeholder="e.g. 800" style="width: 110px;">
           </div>
 
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <label style="font-size: 0.85rem; font-weight: 600;">Max Daily Rate (₹):</label>
-            <input type="number" id="filter-price" class="form-control" placeholder="₹" style="width: 110px; padding: 0.4rem 0.6rem;">
+          <div class="filter-item">
+            <label class="filter-label">Max Daily Rate (₹):</label>
+            <input type="number" id="filter-price" class="form-control form-control-sm" placeholder="₹ max" style="width: 110px;">
           </div>
 
-          <button class="btn btn-secondary btn-sm" onclick="triggerFleetSearch()">Apply Filters</button>
+          <div class="filter-actions">
+            <button class="btn btn-secondary btn-sm" onclick="triggerFleetSearch()">Apply Filters</button>
+            <button class="btn btn-outline btn-sm" onclick="resetFleetFilters()">Reset</button>
+          </div>
         </div>
       </div>
 
       <!-- Fleet Grid -->
+      <div class="section-header">
+        <div class="section-title">
+          <h2>Available Fleet in Market Yards</h2>
+          <span id="fleet-count-badge" class="badge badge-blue">Loading vehicles...</span>
+        </div>
+        <div class="section-actions">
+          <button class="btn btn-outline btn-sm" onclick="loadFleet()">↻ Refresh Fleet</button>
+        </div>
+      </div>
+
       <div id="fleet-grid" class="grid-3" style="margin-bottom: 2.5rem;"></div>
 
-      <!-- My Active Bookings -->
+      <!-- My Active Bookings Section -->
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span>📅</span> <span data-i18n="my_bookings">My Active Bookings & Trips</span>
+            <span>📅</span> <span data-i18n="my_bookings">My Active Bookings &amp; Rental Trips</span>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="loadRenterBookings()">Refresh</button>
+          <button class="btn btn-secondary btn-sm" onclick="loadRenterBookings()">↻ Refresh Bookings</button>
         </div>
         <div class="table-responsive">
           <table>
             <thead>
               <tr>
-                <th>Booking Ref</th>
-                <th>Time Window</th>
-                <th>Hold Amount</th>
+                <th>Booking Reference</th>
+                <th>Trip Time Window</th>
+                <th>Funds Held</th>
                 <th>Status</th>
-                <th>Job / Trip</th>
-                <th>Action</th>
+                <th>Purpose / Dispatch</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="renter-bookings-tbody"></tbody>
@@ -164,37 +220,54 @@
 
     <!-- ==================== PANEL 2: VEHICLE OWNER PORTAL ==================== -->
     <div id="panel-owner" class="panel">
+      <!-- Portal Sub-Hero -->
+      <div class="owner-intro-banner">
+        <div>
+          <h3>Vehicle Owner &amp; Transporter Fleet Hub</h3>
+          <p>Register commercial vehicles, upload documents, set daily rental rates, and earn consistent income from verified renters and logistics operations.</p>
+        </div>
+        <div class="owner-stats-pills">
+          <div class="stat-pill"><span class="stat-number">100%</span> Verified Renters</div>
+          <div class="stat-pill"><span class="stat-number">Direct</span> Bank &amp; Wallet Payouts</div>
+          <div class="stat-pill"><span class="stat-number">₹0</span> Listing Fees</div>
+        </div>
+      </div>
+
       <div class="grid-2">
         <!-- Vehicle Registration Form -->
         <div class="card">
           <div class="card-header">
             <div class="card-title">
-              <span>📝</span> <span data-i18n="register_title">Register New Commercial Vehicle</span>
+              <span>📝</span> <span data-i18n="register_title">Register Commercial Vehicle</span>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="runOcrExtract()" data-i18n="ocr_btn">
-              ⚡ Auto-Fill via Smart OCR
+            <button class="btn btn-secondary btn-sm" onclick="runOcrExtract()" data-i18n="ocr_btn" title="Extract registration data using Smart OCR">
+              ⚡ Smart OCR Auto-Fill
             </button>
           </div>
 
+          <p class="form-helper-text">
+            Enter your vehicle registration details. All registrations are verified against the official National Vahan Vehicle Registry.
+          </p>
+
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" data-i18n="reg_no_label">Registration Number *</label>
-              <input type="text" id="reg-number" class="form-control" placeholder="KA-01-AB-1234">
+              <label class="form-label" data-i18n="reg_no_label">Vehicle Registration Number *</label>
+              <input type="text" id="reg-number" class="form-control" placeholder="KA-01-AB-1234" style="text-transform: uppercase;">
             </div>
             <div class="form-group">
-              <label class="form-label" data-i18n="class_label">Vehicle Class *</label>
+              <label class="form-label" data-i18n="class_label">Vehicle Category *</label>
               <select id="reg-class" class="form-control">
-                <option value="LIGHT_COMMERCIAL">Light Commercial (0.5T - 1.5T)</option>
-                <option value="TRACTOR">Agricultural Tractor</option>
-                <option value="HEAVY_COMMERCIAL">Heavy Commercial Truck</option>
-                <option value="AUTO_RICKSHAW">Cargo Auto Rickshaw (3-Wheeler)</option>
+                <option value="LIGHT_COMMERCIAL">Light Commercial Vehicle (Tata Ace, Bolero Maxi)</option>
+                <option value="TRACTOR">Agricultural Tractor (Mahindra, Swaraj, John Deere)</option>
+                <option value="HEAVY_COMMERCIAL">Heavy Commercial Truck (Eicher, Ashok Leyland)</option>
+                <option value="AUTO_RICKSHAW">Cargo 3-Wheeler Auto Rickshaw (Piaggio Ape)</option>
               </select>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" data-i18n="make_model_label">Make & Model *</label>
+              <label class="form-label" data-i18n="make_model_label">Make &amp; Model *</label>
               <input type="text" id="reg-make" class="form-control" placeholder="Tata Ace Gold Plus">
             </div>
             <div class="form-group">
@@ -221,26 +294,26 @@
 
           <div class="form-group">
             <label class="form-label" data-i18n="rc_doc_label">Registration Certificate (RC) Number *</label>
-            <input type="text" id="reg-rc-doc" class="form-control" placeholder="RC-99887766">
+            <input type="text" id="reg-rc-doc" class="form-control" placeholder="RC-KA01AB1234">
           </div>
 
-          <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1rem; background: #f8fafc; padding: 0.65rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-            🔒 Registered ownership binds directly to your verified citizen account. All RC documents and inspection photos are encrypted at rest.
+          <div class="info-callout">
+            🔒 Vehicle ownership binds to your verified account. All RC documents and inspection files are encrypted with enterprise-grade storage encryption.
           </div>
 
-          <button class="btn btn-primary" style="width: 100%;" onclick="submitVehicleRegistration()" data-i18n="submit_reg_btn">
-            Register Vehicle
+          <button class="btn btn-primary btn-block" onclick="submitVehicleRegistration()" data-i18n="submit_reg_btn">
+            Register Vehicle with Vahan Registry
           </button>
         </div>
 
-        <!-- My Registered Fleet -->
+        <!-- My Registered Fleet & Active Listings -->
         <div>
           <div class="card" style="margin-bottom: 1.5rem;">
             <div class="card-header">
               <div class="card-title">
-                <span>🚛</span> <span data-i18n="my_vehicles">My Fleet Vehicles</span>
+                <span>🚛</span> <span data-i18n="my_vehicles">My Registered Fleet</span>
               </div>
-              <button class="btn btn-secondary btn-sm" onclick="loadOwnerVehicles()">Refresh</button>
+              <button class="btn btn-secondary btn-sm" onclick="loadOwnerVehicles()">↻ Refresh</button>
             </div>
             <div id="owner-vehicles-list"></div>
           </div>
@@ -249,14 +322,14 @@
           <div class="card">
             <div class="card-header">
               <div class="card-title">
-                <span>🏷️</span> <span>Published Rental Listings</span>
+                <span>🏷️</span> <span>My Published Rental Listings</span>
               </div>
             </div>
             <div class="table-responsive">
               <table>
                 <thead>
                   <tr>
-                    <th>Location</th>
+                    <th>Market Hub Location</th>
                     <th>Rate / Day</th>
                     <th>Deposit</th>
                     <th>Status</th>
@@ -271,30 +344,29 @@
       </div>
     </div>
 
-    <!-- ==================== PANEL 3: AGRILINK DELIVERY SIMULATOR ==================== -->
+    <!-- ==================== PANEL 3: LOGISTICS & DISPATCH ==================== -->
     <div id="panel-agrilink" class="panel">
       <div class="grid-2">
         <div class="card">
           <div class="card-header">
             <div class="card-title">
-              <span>🌾</span> <span>AgriLink Logistics Dispatch & Assignment</span>
+              <span>🌾</span> <span>Logistics Dispatch &amp; Vehicle Matching Engine</span>
             </div>
-            <span class="badge badge-blue">Microservice Dispatch</span>
+            <span class="badge badge-blue">Automated Dispatch</span>
           </div>
 
           <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-            Simulates automated agricultural dispatch: AgriLink delivery jobs request dedicated transport. 
-            The system allocates a matching vehicle, secures a delivery wallet fund hold, transitions the vehicle to <strong>In Transit</strong>, and broadcasts a real-time assignment event.
+            Matches agricultural delivery jobs to verified commercial vehicles in the nearest APMC hub. Automatically secures logistics escrow hold, updates vehicle to <strong>In Transit</strong>, and dispatches real-time assignment tracking.
           </p>
 
           <div class="form-group">
-            <label class="form-label">AgriLink Delivery Job Reference *</label>
+            <label class="form-label">Delivery Job Reference *</label>
             <input type="text" id="agl-job-ref" class="form-control" value="AGL-DEL-2026-9042">
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Required Vehicle Class</label>
+              <label class="form-label">Required Vehicle Category</label>
               <select id="agl-vclass" class="form-control">
                 <option value="LIGHT_COMMERCIAL">Light Commercial (Tata Ace / Bolero)</option>
                 <option value="TRACTOR">Agricultural Tractor</option>
@@ -308,29 +380,29 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Delivery Destination Hub</label>
+            <label class="form-label">Destination Hub / APMC Yard</label>
             <input type="text" id="agl-dest" class="form-control" value="Whitefield Agri Logistics Park, Bengaluru">
           </div>
 
-          <button class="btn btn-primary" style="width: 100%;" onclick="submitAgriLinkAssignment()">
-            Dispatch Delivery Vehicle Request
+          <button class="btn btn-primary btn-block" onclick="submitAgriLinkAssignment()">
+            Dispatch &amp; Assign Delivery Vehicle
           </button>
         </div>
 
         <div class="card">
           <div class="card-header">
             <div class="card-title">
-              <span>📡</span> <span>Dispatch Status & Event Notice</span>
+              <span>📡</span> <span>Dispatch Status &amp; Real-Time Tracking</span>
             </div>
           </div>
-          <div id="agl-result-display" style="padding: 1rem; color: var(--text-muted); font-size: 0.9rem;">
-            Awaiting job assignment submission...
+          <div id="agl-result-display" style="padding: 1.25rem; color: var(--text-muted); font-size: 0.92rem; min-height: 200px;">
+            Awaiting job dispatch request... Enter delivery job details and click <strong>Dispatch &amp; Assign Delivery Vehicle</strong>.
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ==================== PANEL 4: ADMIN & RTO OFFICIAL CONSOLE ==================== -->
+    <!-- ==================== PANEL 4: SAFETY & COMPLIANCE CONSOLE ==================== -->
     <div id="panel-admin" class="panel">
       <div class="grid-2" style="margin-bottom: 1.5rem;">
         <!-- Verification Review Queue -->
@@ -339,10 +411,10 @@
             <div class="card-title">
               <span>⚖️</span> <span data-i18n="admin_queue_title">Pending Vehicle Verifications</span>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="loadAdminVerificationQueue()">Refresh</button>
+            <button class="btn btn-secondary btn-sm" onclick="loadAdminVerificationQueue()">↻ Refresh Queue</button>
           </div>
           <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-            Vehicles awaiting administrative inspection or flagged for manual compliance review appear in this queue.
+            Commercial vehicles awaiting inspection or flagged for manual compliance review appear in this queue.
           </p>
           <div id="admin-review-queue"></div>
         </div>
@@ -351,28 +423,28 @@
         <div class="card">
           <div class="card-header">
             <div class="card-title">
-              <span>🛡️</span> <span>Safety & Compliance Controls</span>
+              <span>🛡️</span> <span>Fleet Safety &amp; Compliance Audit</span>
             </div>
           </div>
           <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <div style="padding: 1rem; background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius-sm);">
-              <h4>Automated Compliance & Safety Scan</h4>
-              <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.35rem 0 0.75rem 0;">
-                Scans all registered vehicles. Any vehicle with expired Insurance, Fitness, Permit, or PUC is automatically paused from rental listings and blocked from new bookings.
+            <div class="action-card">
+              <h4>Automated Fleet Safety &amp; Document Expiry Scan</h4>
+              <p>
+                Scans all registered fleet vehicles. Any vehicle with expired Insurance, Fitness, State Permit, or PUC is automatically paused from rental listings and blocked from new reservations until renewed.
               </p>
               <button class="btn btn-primary btn-sm" onclick="runSweepAction()" data-i18n="compliance_sweep_btn">
-                Run Fleet Safety & Compliance Scan
+                Run Fleet Safety &amp; Compliance Scan
               </button>
             </div>
 
-            <div style="padding: 1rem; background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius-sm);">
-              <h4>Export Reports & Vehicle Registry</h4>
-              <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.35rem 0 0.75rem 0;">
-                Download official registry databases and security audit trails in CSV format.
+            <div class="action-card">
+              <h4>Export Official Vehicle Registry &amp; Audit Logs</h4>
+              <p>
+                Download official registry databases and verified security audit trails in CSV format for compliance reporting.
               </p>
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 <button class="btn btn-secondary btn-sm" onclick="exportCsvRecordsAction()" data-i18n="export_csv_btn">
-                  Export Audit History (CSV)
+                  Export Audit Trail (CSV)
                 </button>
                 <button class="btn btn-secondary btn-sm" onclick="exportVehiclesCsvAction()" data-i18n="export_registry_btn">
                   Export Vehicle Registry (CSV)
@@ -383,23 +455,23 @@
         </div>
       </div>
 
-      <!-- Audit Trail Table -->
+      <!-- Activity & Security Audit Log -->
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span>📜</span> <span>Activity & Security Audit Log</span>
+            <span>📜</span> <span>Platform Activity &amp; Security Audit Trail</span>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="loadAuditTrail()">Refresh</button>
+          <button class="btn btn-secondary btn-sm" onclick="loadAuditTrail()">↻ Refresh Log</button>
         </div>
         <div class="table-responsive">
           <table>
             <thead>
               <tr>
-                <th>Time (UTC)</th>
+                <th>Timestamp (UTC)</th>
                 <th>Action</th>
-                <th>Actor</th>
-                <th>Entity</th>
-                <th>Tracing ID</th>
+                <th>Actor ID / Role</th>
+                <th>Entity Affected</th>
+                <th>Tracking ID</th>
               </tr>
             </thead>
             <tbody id="admin-audit-tbody"></tbody>
@@ -408,21 +480,21 @@
       </div>
     </div>
 
-    <!-- ==================== PANEL 5: MICROSERVICE DATA HUB ==================== -->
+    <!-- ==================== PANEL 5: PLATFORM ACTIVITY & HUB ==================== -->
     <div id="panel-hub" class="panel">
       <div class="grid-2" style="margin-bottom: 1.5rem;">
-        <!-- Transactional Outbox -->
+        <!-- Transactional Outbox Events -->
         <div class="card">
           <div class="card-header">
             <div class="card-title">
-              <span>📤</span> <span data-i18n="outbox_title">Event Stream & Microservice Integrations</span>
+              <span>📤</span> <span data-i18n="outbox_title">Live Event Stream &amp; Platform Outbox</span>
             </div>
             <button class="btn btn-primary btn-sm" onclick="dispatchOutboxAction()" data-i18n="dispatch_outbox_btn">
               Dispatch Pending Events
             </button>
           </div>
           <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
-            Real-time event outbox guaranteeing cross-microservice communication (Vehicle Registered, Job Assigned, Booking Confirmed, Trip Settled).
+            Real-time event stream guaranteeing cross-system communication (Vehicle Registered, Trip Assigned, Booking Confirmed, Wallet Settled).
           </p>
           <div class="table-responsive" style="max-height: 350px;">
             <table>
@@ -432,7 +504,7 @@
                   <th>Domain</th>
                   <th>Reference</th>
                   <th>Status</th>
-                  <th>Payload Data</th>
+                  <th>Payload Preview</th>
                 </tr>
               </thead>
               <tbody id="outbox-events-tbody"></tbody>
@@ -440,13 +512,13 @@
           </div>
         </div>
 
-        <!-- Citizen Wallet Simulator -->
+        <!-- Digital Wallet Balances & Holds -->
         <div class="card">
           <div class="card-header">
             <div class="card-title">
-              <span>💳</span> <span data-i18n="wallet_state_title">Citizen Wallet & Active Holds</span>
+              <span>💳</span> <span data-i18n="wallet_state_title">Platform Digital Wallet Balances &amp; Holds</span>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="loadWalletState()">Refresh</button>
+            <button class="btn btn-secondary btn-sm" onclick="loadWalletState()">↻ Refresh Balances</button>
           </div>
           <div id="hub-wallet-state"></div>
         </div>
@@ -456,28 +528,38 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <span>🌐</span> <span>AgriLink Service Discovery Catalog & Contracts</span>
+            <span>🌐</span> <span>Platform API Contracts &amp; Endpoints</span>
           </div>
         </div>
-        <pre id="hub-catalog-content" style="background: #1e293b; color: #f8fafc; padding: 1rem; border-radius: var(--radius-sm); font-size: 0.82rem; overflow-x: auto;"></pre>
+        <pre id="hub-catalog-content" class="code-preview-box"></pre>
       </div>
     </div>
   </main>
 
   <!-- ==================== MODALS ==================== -->
 
-  <!-- AUTHENTICATION MODAL (SIGN IN & SIGN UP) -->
+  <!-- AUTHENTICATION MODAL (CUSTOM CREDENTIAL SIGN UP & SIGN IN) -->
   <div id="auth-modal" class="modal-overlay">
-    <div class="modal" style="max-width: 500px;">
+    <div class="modal" style="max-width: 520px;">
       <div class="modal-header">
-        <h3 id="auth-modal-title">Citizen Account Access</h3>
+        <div>
+          <h3 id="auth-modal-title">Account Access</h3>
+          <p class="modal-subtitle" id="auth-modal-sub">Sign in with your credentials or create a new account</p>
+        </div>
         <button class="close-btn" onclick="closeModals()">✕</button>
       </div>
-      <div class="modal-body" style="padding-top: 1rem;">
+      <div class="modal-body" style="padding-top: 0.5rem;">
         <!-- Auth Navigation Tabs -->
         <div class="auth-nav">
-          <button class="auth-nav-btn active" id="auth-tab-signin" onclick="switchAuthTab('signin')">Sign In</button>
-          <button class="auth-nav-btn" id="auth-tab-signup" onclick="switchAuthTab('signup')">Create Account</button>
+          <button class="auth-nav-btn active" id="auth-tab-signin" onclick="switchAuthTab('signin')">
+            Sign In
+          </button>
+          <button class="auth-nav-btn" id="auth-tab-facelogin" onclick="switchAuthTab('facelogin')">
+            👤 Face Login
+          </button>
+          <button class="auth-nav-btn" id="auth-tab-signup" onclick="switchAuthTab('signup')">
+            ✨ Create Account
+          </button>
         </div>
 
         <!-- Sign In Form -->
@@ -487,37 +569,96 @@
             <input type="email" id="signin-email" class="form-control" placeholder="name@example.com" value="ramesh@agrilink.in">
           </div>
           <div class="form-group">
-            <label class="form-label">Password *</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+              <label class="form-label" style="margin-bottom: 0;">Password *</label>
+              <button type="button" class="link-btn" onclick="togglePasswordVisibility('signin-password', this)">Show</button>
+            </div>
             <input type="password" id="signin-password" class="form-control" placeholder="Enter your password" value="ramesh123">
           </div>
-          <button class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" onclick="handleSignIn()">
+
+          <button class="btn btn-primary btn-block" style="margin-top: 1rem;" onclick="handleSignIn()">
             Sign In to My Account
           </button>
 
-          <div style="margin-top: 1.25rem; border-top: 1px solid var(--border); padding-top: 1rem;">
-            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Or sign in instantly with a test account:</div>
-            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
-              <button class="btn btn-secondary btn-sm" onclick="quickFillSignIn('ramesh@agrilink.in', 'ramesh123')">Ramesh (Owner)</button>
-              <button class="btn btn-secondary btn-sm" onclick="quickFillSignIn('priya@agrilink.in', 'priya123')">Priya (Renter)</button>
-              <button class="btn btn-secondary btn-sm" onclick="quickFillSignIn('suresh@agrilink.in', 'suresh123')">Suresh (Driver)</button>
-              <button class="btn btn-secondary btn-sm" onclick="quickFillSignIn('admin@agrilink.in', 'admin123')">Admin Rao</button>
+          <div style="text-align: center; margin-top: 1rem; font-size: 0.88rem; color: var(--text-muted);">
+            Don't have an account yet? 
+            <button type="button" class="link-btn-accent" onclick="switchAuthTab('signup')">Create your account now</button>
+          </div>
+
+          <!-- Quick Fill Demo Accounts -->
+          <div class="demo-accounts-accordion">
+            <div class="demo-accordion-header">
+              <span>Or sign in instantly with a test account:</span>
+            </div>
+            <div class="demo-badges-row">
+              <button class="demo-user-chip" onclick="quickFillSignIn('ramesh@agrilink.in', 'ramesh123')">
+                <span class="chip-role">Owner</span> Ramesh Patil
+              </button>
+              <button class="demo-user-chip" onclick="quickFillSignIn('priya@agrilink.in', 'priya123')">
+                <span class="chip-role">Renter</span> Priya Sharma
+              </button>
+              <button class="demo-user-chip" onclick="quickFillSignIn('suresh@agrilink.in', 'suresh123')">
+                <span class="chip-role">Driver</span> Suresh Gowda
+              </button>
+              <button class="demo-user-chip" onclick="quickFillSignIn('admin@agrilink.in', 'admin123')">
+                <span class="chip-role">Admin</span> Officer Rao
+              </button>
             </div>
           </div>
         </div>
 
-        <!-- Sign Up Form (Luxury to create own credentials) -->
+        <!-- Face Recognition Login Form -->
+        <div id="auth-form-facelogin" style="display: none;">
+          <div class="face-auth-box">
+            <div class="face-camera-container">
+              <video id="face-login-video" autoplay playsinline muted></video>
+              <canvas id="face-login-canvas" style="display:none;"></canvas>
+              <div id="face-login-scan-overlay" class="face-scan-overlay">
+                <div class="face-scan-reticle">
+                  <div class="face-scan-line"></div>
+                </div>
+              </div>
+              <img id="face-login-captured-img" class="face-captured-preview" style="display: none;" alt="Captured Face Preview">
+            </div>
+            <div id="face-login-status" class="face-status-badge">
+              Position your face inside the circle &amp; ensure good lighting
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top: 1rem;">
+            <label class="form-label">Email Address or Username (Optional)</label>
+            <input type="text" id="face-login-email" class="form-control" placeholder="Leave blank to scan &amp; match all registered profiles">
+          </div>
+
+          <button class="btn btn-primary btn-block" id="btn-face-login-scan" onclick="performFaceLogin()">
+            📸 Scan Face &amp; Sign In
+          </button>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.85rem; font-size: 0.85rem;">
+            <button type="button" class="link-btn" onclick="document.getElementById('face-login-file-input').click()">
+              📁 Or upload a face photo
+            </button>
+            <input type="file" id="face-login-file-input" accept="image/*" style="display: none;" onchange="handleFaceLoginFile(event)">
+            <button type="button" class="link-btn-accent" onclick="switchAuthTab('signin')">Password Sign In</button>
+          </div>
+        </div>
+
+        <!-- Sign Up Form (User creates their own credentials) -->
         <div id="auth-form-signup" style="display: none;">
           <div class="form-group">
             <label class="form-label">Full Name *</label>
-            <input type="text" id="signup-name" class="form-control" placeholder="e.g. Anand Kumar">
+            <input type="text" id="signup-name" class="form-control" placeholder="e.g. Himanshu Choudhary">
           </div>
           <div class="form-group">
-            <label class="form-label">Email Address *</label>
-            <input type="email" id="signup-email" class="form-control" placeholder="anand@example.com">
+            <label class="form-label">Email Address or Username *</label>
+            <input type="text" id="signup-email" class="form-control" placeholder="e.g. himanshu or himanshu@example.com">
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Choose Password *</label>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <label class="form-label" style="margin-bottom: 0;">Choose Password *</label>
+                <button type="button" class="link-btn" onclick="togglePasswordVisibility('signup-password', this)">Show</button>
+              </div>
               <input type="password" id="signup-password" class="form-control" placeholder="Min 4 characters">
             </div>
             <div class="form-group">
@@ -527,33 +668,97 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Account Role *</label>
+              <label class="form-label">Primary Account Role *</label>
               <select id="signup-role" class="form-control">
-                <option value="RENTER">Renter (Book Vehicles)</option>
-                <option value="VEHICLE_OWNER">Vehicle Owner (List Vehicles)</option>
-                <option value="DELIVERY_PERSON">AgriLink Delivery Partner</option>
-                <option value="ADMIN">Administrator</option>
+                <option value="RENTER">Customer / Renter (Book &amp; Rent Vehicles)</option>
+                <option value="VEHICLE_OWNER">Vehicle Owner (List &amp; Manage Fleet)</option>
+                <option value="DELIVERY_PERSON">Logistics Partner / Driver</option>
+                <option value="ADMIN">Platform Administrator</option>
               </select>
             </div>
             <div class="form-group">
               <label class="form-label">Driving Licence Class</label>
               <select id="signup-licence" class="form-control">
-                <option value="LMV,HMV,TRACTOR">LMV, HMV & Tractor (Commercial All)</option>
-                <option value="LMV">LMV (Light Commercial, Cars, Mini-Trucks)</option>
+                <option value="LMV,HMV,TRACTOR">LMV, HMV &amp; Tractor (Commercial All)</option>
+                <option value="LMV">LMV (Light Commercial &amp; Mini-Trucks)</option>
                 <option value="HMV">HMV (Heavy Commercial Trucks)</option>
-                <option value="TRACTOR">Tractor & Agri Machinery</option>
+                <option value="TRACTOR">Tractor &amp; Farm Machinery</option>
                 <option value="MCWG">MCWG (Two Wheelers)</option>
               </select>
             </div>
           </div>
 
-          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-sm); padding: 0.75rem; font-size: 0.82rem; color: #166534; margin-bottom: 1rem;">
-            🎁 <strong>Welcome Benefit:</strong> New registered accounts immediately receive an initial <strong>₹30,000 Wallet Balance</strong> to reserve trips and test vehicle bookings!
+          <!-- Face Biometrics Enrollment Section -->
+          <div class="face-enrollment-card">
+            <div class="face-enrollment-header">
+              <div style="font-weight: 700; font-size: 0.92rem; color: #1e293b; display: flex; align-items: center; gap: 0.4rem;">
+                <span>👤</span> <span>Enroll Face Biometric for 1-Click Login</span>
+                <span class="badge badge-green" style="font-size: 0.72rem;">Optional</span>
+              </div>
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Capture or upload your face photo now to log in instantly with Face Recognition!
+              </div>
+            </div>
+
+            <div class="face-enrollment-body">
+              <div class="face-capture-viewport" id="signup-camera-wrap" style="display: none;">
+                <video id="signup-face-video" autoplay playsinline muted></video>
+                <canvas id="signup-face-canvas" style="display: none;"></canvas>
+                <div class="face-scan-overlay">
+                  <div class="face-scan-reticle mini">
+                    <div class="face-scan-line"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="signup-face-preview-wrap" style="display: none; text-align: center; margin: 0.5rem 0;">
+                <img id="signup-face-preview-img" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #10b981; margin: 0 auto; display: block;" alt="Enrolled Face">
+                <div style="color: #059669; font-size: 0.8rem; font-weight: 600; margin-top: 0.35rem;">✓ Face Biometric Captured &amp; Ready</div>
+              </div>
+
+              <input type="hidden" id="signup-face-image">
+
+              <div class="face-enrollment-buttons">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-start-signup-camera" onclick="startSignupCamera()">
+                  📷 Open Webcam
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-capture-signup-face" style="display: none;" onclick="captureSignupFace()">
+                  📸 Capture Face
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-retake-signup-face" style="display: none;" onclick="retakeSignupFace()">
+                  Retake Photo
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('signup-face-file-input').click()">
+                  📁 Upload Photo
+                </button>
+                <input type="file" id="signup-face-file-input" accept="image/*" style="display: none;" onchange="handleSignupFaceFile(event)">
+              </div>
+            </div>
           </div>
 
-          <button class="btn btn-primary" style="width: 100%;" onclick="handleSignUp()">
-            Create Account & Sign In
+          <!-- Flow choice: Luxury to create credentials and then login -->
+          <div class="signup-flow-toggle">
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer; color: #1e293b;">
+              <input type="checkbox" id="signup-auto-login" checked>
+              <span>Log me in automatically right after registration</span>
+            </label>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 1.4rem;">
+              (Uncheck if you want to be redirected to the sign-in screen to type in your new credentials yourself)
+            </div>
+          </div>
+
+          <div class="welcome-credit-card">
+            🎁 <strong>Welcome Benefit:</strong> New registered accounts immediately receive a complimentary <strong>₹30,000 Wallet Balance</strong> to reserve trips and test vehicle bookings!
+          </div>
+
+          <button class="btn btn-primary btn-block" onclick="handleSignUp()">
+            Create Account &amp; Proceed
           </button>
+
+          <div style="text-align: center; margin-top: 1rem; font-size: 0.88rem; color: var(--text-muted);">
+            Already have an account? 
+            <button type="button" class="link-btn-accent" onclick="switchAuthTab('signin')">Sign In instead</button>
+          </div>
         </div>
       </div>
     </div>
@@ -563,7 +768,10 @@
   <div id="booking-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3 id="booking-modal-title">Book Vehicle</h3>
+        <div>
+          <h3 id="booking-modal-title">Book Vehicle</h3>
+          <p class="modal-subtitle">Select your rental time window and confirm wallet escrow hold</p>
+        </div>
         <button class="close-btn" onclick="closeModals()">✕</button>
       </div>
       <div class="modal-body">
@@ -580,9 +788,9 @@
 
         <div id="booking-price-preview" style="margin-bottom: 1rem;"></div>
 
-        <div style="font-size: 0.82rem; color: #166534; background: #dcfce7; padding: 0.75rem; border-radius: var(--radius-sm);">
-          ✓ <strong>Wallet Hold Protection:</strong> Required funds are reserved in your wallet upon confirmation and only charged upon trip completion.<br>
-          ✓ <strong>Availability Guarantee:</strong> Instant calendar locking guarantees zero double-booking on confirmed vehicles.
+        <div class="info-callout-green">
+          <div>✓ <strong>Protected Wallet Escrow:</strong> Rent &amp; security deposit are safely held in your wallet upon confirmation and only finalized upon successful trip completion.</div>
+          <div style="margin-top: 0.25rem;">✓ <strong>Guaranteed Availability:</strong> Instant calendar slot locking ensures zero double-booking on this vehicle.</div>
         </div>
       </div>
       <div class="modal-footer">
@@ -596,7 +804,10 @@
   <div id="calendar-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3>Vehicle Availability Calendar</h3>
+        <div>
+          <h3>Vehicle Availability Schedule</h3>
+          <p class="modal-subtitle">Live real-time reservation slots</p>
+        </div>
         <button class="close-btn" onclick="closeModals()">✕</button>
       </div>
       <div class="modal-body" id="calendar-modal-body"></div>
@@ -606,16 +817,19 @@
     </div>
   </div>
 
-  <!-- Handover Modal -->
+  <!-- Trip Handover Modal -->
   <div id="handover-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3>Start Trip (Record Handover)</h3>
+        <div>
+          <h3>Start Trip — Record Vehicle Handover</h3>
+          <p class="modal-subtitle">Inspect vehicle condition and record starting odometer</p>
+        </div>
         <button class="close-btn" onclick="closeModals()">✕</button>
       </div>
       <div class="modal-body">
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-          Booking: <strong id="handover-ref-display"></strong>. The vehicle status transitions to <strong>On Trip (Rented)</strong>.
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Booking: <strong id="handover-ref-display"></strong>. The vehicle transitions to <strong>On Trip (Rented)</strong>.
         </p>
         <div class="form-row">
           <div class="form-group">
@@ -623,32 +837,35 @@
             <input type="number" id="handover-odo" class="form-control" value="12500">
           </div>
           <div class="form-group">
-            <label class="form-label">Fuel Level (%) *</label>
+            <label class="form-label">Current Fuel Level (%) *</label>
             <input type="number" id="handover-fuel" class="form-control" value="95" min="0" max="100">
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Inspection & Condition Notes</label>
-          <textarea id="handover-notes" class="form-control" rows="3" placeholder="Clean deck, tire pressure verified..."></textarea>
+          <label class="form-label">Pre-Trip Inspection &amp; Condition Notes</label>
+          <textarea id="handover-notes" class="form-control" rows="3" placeholder="Clean cargo deck, tire pressure verified, all lights working..."></textarea>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModals()">Cancel</button>
-        <button class="btn btn-primary" onclick="submitHandover()">Confirm Handover & Start Trip</button>
+        <button class="btn btn-primary" onclick="submitHandover()">Confirm Handover &amp; Start Trip</button>
       </div>
     </div>
   </div>
 
-  <!-- Return Modal -->
+  <!-- Trip Return & Settlement Modal -->
   <div id="return-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3>End Trip & Settle Payment</h3>
+        <div>
+          <h3>Complete Trip &amp; Settle Payment</h3>
+          <p class="modal-subtitle">Record return metrics, release owner payout, and refund deposit</p>
+        </div>
         <button class="close-btn" onclick="closeModals()">✕</button>
       </div>
       <div class="modal-body">
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-          Booking: <strong id="return-ref-display"></strong>. Releases rental payout to the vehicle owner and immediately refunds your security deposit.
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Booking: <strong id="return-ref-display"></strong>. Completing this step immediately disburses rental earnings to the vehicle owner and refunds your refundable deposit.
         </p>
         <div class="form-row">
           <div class="form-group">
@@ -661,15 +878,15 @@
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Return Condition Notes</label>
-          <textarea id="return-notes" class="form-control" rows="2" placeholder="Returned in clean condition."></textarea>
+          <label class="form-label">Return Inspection Notes</label>
+          <textarea id="return-notes" class="form-control" rows="2" placeholder="Vehicle returned on time in clean condition."></textarea>
         </div>
-        <div class="form-group" style="background: #f8fafc; padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-          <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 0.85rem;">
+        <div class="damage-toggle-box">
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 0.88rem; cursor: pointer;">
             <input type="checkbox" id="return-damage-toggle" onchange="document.getElementById('damage-amount-group').style.display = this.checked ? 'block' : 'none'">
-            Any new vehicle damage detected?
+            Any new vehicle damage detected during inspection?
           </label>
-          <div id="damage-amount-group" style="display: none; margin-top: 0.5rem;">
+          <div id="damage-amount-group" style="display: none; margin-top: 0.65rem;">
             <label class="form-label">Damage Deduction Amount (₹)</label>
             <input type="number" id="return-damage-amount" class="form-control" value="0">
           </div>
@@ -677,7 +894,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModals()">Cancel</button>
-        <button class="btn btn-primary" onclick="submitReturn()">Complete Return & Settle Wallet</button>
+        <button class="btn btn-primary" onclick="submitReturn()">Complete Return &amp; Settle Wallet</button>
       </div>
     </div>
   </div>
@@ -686,22 +903,25 @@
   <div id="cancel-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3>Cancel Rental Booking</h3>
+        <div>
+          <h3>Cancel Rental Booking</h3>
+          <p class="modal-subtitle">Review cancellation refund policy</p>
+        </div>
         <button class="close-btn" onclick="closeModals()">✕</button>
       </div>
       <div class="modal-body">
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1rem;">
           Booking: <strong id="cancel-ref-display"></strong>
         </p>
         <div class="form-group">
           <label class="form-label">Reason for Cancellation</label>
-          <textarea id="cancel-reason" class="form-control" rows="2" placeholder="Produce harvest schedule changed..."></textarea>
+          <textarea id="cancel-reason" class="form-control" rows="2" placeholder="Produce harvest schedule shifted, need different date..."></textarea>
         </div>
-        <div style="background: #f8fafc; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.82rem; color: var(--text-muted);">
-          <strong>Cancellation Policy:</strong><br>
-          • > 24 hours prior: 100% full refund (No cancellation fee)<br>
-          • 12 to 24 hours prior: 10% base rent cancellation fee, 100% deposit refunded<br>
-          • < 12 hours prior: 25% base rent cancellation fee, 100% deposit refunded
+        <div class="cancellation-policy-box">
+          <strong>Fair Cancellation Policy:</strong><br>
+          • <strong>&gt; 24 hours prior:</strong> 100% full refund (₹0 fee)<br>
+          • <strong>12 to 24 hours prior:</strong> 10% base rent fee, 100% security deposit refunded<br>
+          • <strong>&lt; 12 hours prior:</strong> 25% base rent fee, 100% security deposit refunded
         </div>
       </div>
       <div class="modal-footer">
@@ -715,22 +935,25 @@
   <div id="compliance-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3>Compliance Certificates: <span id="comp-modal-reg"></span></h3>
+        <div>
+          <h3>Compliance Certificates: <span id="comp-modal-reg"></span></h3>
+          <p class="modal-subtitle">Official vehicle fitness, insurance, and roadworthiness documents</p>
+        </div>
         <button class="close-btn" onclick="closeModals()">✕</button>
       </div>
       <div class="modal-body">
         <div id="comp-docs-list" style="margin-bottom: 1.5rem;"></div>
 
         <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
-          <h5 style="margin-bottom: 0.75rem;">Upload / Renew Certificate:</h5>
+          <h5 style="margin-bottom: 0.75rem;">Upload or Renew Certificate:</h5>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Certificate Type</label>
               <select id="comp-new-type" class="form-control">
                 <option value="INSURANCE">Insurance Policy</option>
-                <option value="FITNESS">Fitness Certificate</option>
+                <option value="FITNESS">Vehicle Fitness Certificate</option>
                 <option value="PUC">Pollution Under Control (PUC)</option>
-                <option value="PERMIT">State Goods Permit</option>
+                <option value="PERMIT">Commercial Goods Carriage Permit</option>
               </select>
             </div>
             <div class="form-group">
@@ -751,11 +974,14 @@
     </div>
   </div>
 
-  <!-- Listing Modal -->
+  <!-- Rental Listing Modal -->
   <div id="listing-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3 data-i18n="create_listing_title">Publish Rental Listing & Rates</h3>
+        <div>
+          <h3 data-i18n="create_listing_title">Publish Rental Listing &amp; Rate Card</h3>
+          <p class="modal-subtitle">Set your pricing, deposit, and APMC market yard pickup hub</p>
+        </div>
         <button class="close-btn" onclick="closeModals()">✕</button>
       </div>
       <div class="modal-body">
@@ -781,12 +1007,12 @@
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label" data-i18n="pickup_loc">Pickup APMC Yard / Hub Location *</label>
+          <label class="form-label" data-i18n="pickup_loc">Pickup APMC Market Yard / Hub Location *</label>
           <input type="text" id="listing-pickup" class="form-control" value="Hebbal APMC Market Yard, Bengaluru">
         </div>
         <div class="form-group">
-          <label class="form-label" data-i18n="rental_rules">Rental Rules & Driving Guidelines</label>
-          <textarea id="listing-rules" class="form-control" rows="2" placeholder="Commercial licence required. Return with clean deck."></textarea>
+          <label class="form-label" data-i18n="rental_rules">Rental Rules &amp; Guidelines</label>
+          <textarea id="listing-rules" class="form-control" rows="2" placeholder="Commercial licence required. Return with clean deck and same fuel level."></textarea>
         </div>
       </div>
       <div class="modal-footer">
@@ -796,7 +1022,7 @@
     </div>
   </div>
 
-  <!-- Toast Container -->
+  <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 
   <!-- Scripts -->

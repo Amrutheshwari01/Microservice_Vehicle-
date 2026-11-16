@@ -4,39 +4,39 @@ from pydantic import BaseModel, Field
 
 class BookingCreateRequest(BaseModel):
     vehicle_id: str
-    start_time: datetime = Field(..., example="2026-11-20T09:00:00")
-    end_time: datetime = Field(..., example="2026-11-20T17:00:00")
-    idempotency_key: str = Field(..., example="idemp-bk-uuid-001")
+    start_time: datetime = Field(..., examples=["2026-11-20T09:00:00"])
+    end_time: datetime = Field(..., examples=["2026-11-20T17:00:00"])
+    idempotency_key: str = Field(..., examples=["idemp-bk-uuid-001"])
 
 class HandoverCreateRequest(BaseModel):
-    odometer_reading: float = Field(..., ge=0, example=45230.5)
-    fuel_level_percent: float = Field(..., ge=0, le=100, example=95.0)
-    condition_notes: Optional[str] = Field(None, example="Clean condition, minor scratch on left fender noted")
+    odometer_reading: float = Field(..., ge=0, examples=[45230.5])
+    fuel_level_percent: float = Field(..., ge=0, le=100, examples=[95.0])
+    condition_notes: Optional[str] = Field(None, examples=["Clean condition, minor scratch on left fender noted"])
     photos: Optional[List[str]] = Field(default=[], description="List of encrypted photo store references")
 
 class ReturnCreateRequest(BaseModel):
-    odometer_reading: float = Field(..., ge=0, example=45380.0)
-    fuel_level_percent: float = Field(..., ge=0, le=100, example=90.0)
-    condition_notes: Optional[str] = Field(None, example="Returned in good shape")
+    odometer_reading: float = Field(..., ge=0, examples=[45380.0])
+    fuel_level_percent: float = Field(..., ge=0, le=100, examples=[90.0])
+    condition_notes: Optional[str] = Field(None, examples=["Returned in good shape"])
     damage_detected: bool = Field(default=False)
     damage_amount: float = Field(default=0.0, ge=0)
     photos: Optional[List[str]] = Field(default=[])
 
 class CancellationRequest(BaseModel):
-    reason: str = Field(..., example="Agri harvest dispatch rescheduled by cooperative")
+    reason: str = Field(..., examples=["Agri harvest dispatch rescheduled by cooperative"])
 
 class AgriLinkVehicleRequest(BaseModel):
-    agrilink_job_ref: str = Field(..., example="AGL-DEL-2026-9042")
-    delivery_person_citizen_id: str = Field(..., example="CIT-DEL-5544")
-    delivery_person_name: str = Field(..., example="Suresh Gowda")
+    agrilink_job_ref: str = Field(..., examples=["AGL-DEL-2026-9042"])
+    delivery_person_citizen_id: str = Field(..., examples=["CIT-DEL-5544"])
+    delivery_person_name: str = Field(..., examples=["Suresh Gowda"])
     delivery_person_kyc_tier: str = Field(default="T2")
     delivery_person_licence_classes: str = Field(default="LMV,HMV")
-    vehicle_class: Optional[str] = Field(None, example="LIGHT_COMMERCIAL")
-    min_capacity_kg: Optional[float] = Field(None, example=600.0)
-    start_time: datetime = Field(..., example="2026-11-21T06:00:00")
-    end_time: datetime = Field(..., example="2026-11-21T18:00:00")
-    destination: Optional[str] = Field(None, example="Kolar Vegetable Market")
-    idempotency_key: str = Field(..., example="idemp-agl-job-9042")
+    vehicle_class: Optional[str] = Field(None, examples=["LIGHT_COMMERCIAL"])
+    min_capacity_kg: Optional[float] = Field(None, examples=[600.0])
+    start_time: datetime = Field(..., examples=["2026-11-21T06:00:00"])
+    end_time: datetime = Field(..., examples=["2026-11-21T18:00:00"])
+    destination: Optional[str] = Field(None, examples=["Kolar Vegetable Market"])
+    idempotency_key: str = Field(..., examples=["idemp-agl-job-9042"])
 
 class HandoverRecordResponse(BaseModel):
     id: str
@@ -92,4 +92,3 @@ class PriceEstimateResponse(BaseModel):
     deposit_amount: float
     total_hold_amount: float
     breakdown_notes: str
-

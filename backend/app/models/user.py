@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime
+from sqlalchemy import Column, String, DateTime, Text
 from app.database import Base
 
 class User(Base):
@@ -14,6 +14,7 @@ class User(Base):
     role = Column(String(32), nullable=False, default="RENTER") # "RENTER", "VEHICLE_OWNER", "DELIVERY_PERSON", "ADMIN"
     kyc_tier = Column(String(16), nullable=False, default="T1") # "T0", "T1", "T2", "T3"
     driving_licence_classes = Column(String(100), nullable=False, default="LMV") # "LMV,HMV,TRACTOR,MCWG"
+    face_descriptor = Column(Text, nullable=True) # JSON array of normalized feature vector
+    face_thumbnail = Column(Text, nullable=True)  # Base64 data URL thumbnail for avatar
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-

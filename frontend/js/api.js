@@ -1,15 +1,15 @@
-// AgriLink RTO Microservice API Client
+// AgriLink Commercial Fleet & Logistics Platform API Client
 const API_BASE = "/v1";
 
 // Active user session state
 let currentActor = {
-  citizen_id: "CIT-OWNER-001",
-  name: "Ramesh Patil",
-  email: "ramesh@agrilink.in",
-  role: "VEHICLE_OWNER",
-  personas: ["CITIZEN", "VEHICLE_OWNER"],
-  kyc_tier: "T2",
-  driving_licence_classes: ["LMV", "HMV", "TRACTOR"],
+  citizen_id: "GUEST_VISITOR",
+  name: "Guest Visitor",
+  email: "",
+  role: "GUEST",
+  personas: ["CITIZEN"],
+  kyc_tier: "T0",
+  driving_licence_classes: ["LMV"],
   jwt_token: localStorage.getItem("agrilink_token") || ""
 };
 
@@ -32,9 +32,9 @@ function clearSession() {
     name: "Guest Visitor",
     email: "",
     role: "GUEST",
-    personas: ["VISITOR"],
+    personas: ["CITIZEN"],
     kyc_tier: "T0",
-    driving_licence_classes: [],
+    driving_licence_classes: ["LMV"],
     jwt_token: ""
   };
 }
@@ -96,6 +96,8 @@ const API = {
   // Authentication & Profile
   signUp: (userData) => apiRequest("/auth/signup", "POST", userData),
   login: (credentials) => apiRequest("/auth/login", "POST", credentials),
+  faceLogin: (payload) => apiRequest("/auth/face-login", "POST", payload),
+  enrollFace: (payload) => apiRequest("/auth/enroll-face", "POST", payload),
   getMe: () => apiRequest("/auth/me"),
 
   // Fleet & Registration
@@ -137,7 +139,7 @@ const API = {
   cancelBooking: (bookingId, reason) => 
     apiRequest(`/bookings/${bookingId}/cancel`, "POST", { reason }),
 
-  // AgriLink Delivery Integration
+  // Logistics & Delivery Integration
   assignAgriLinkVehicle: (jobData) => 
     apiRequest("/vehicle-requests", "POST", { ...jobData, idempotency_key: `idemp-agl-${generateUUID()}` }),
 
@@ -155,7 +157,7 @@ const API = {
   exportVehicleRegistry: () => 
     apiRequest("/records/export/vehicles"),
 
-  // Outbox & Inter-Service Hub
+  // Outbox & Activity Hub
   getOutboxEvents: (published = null) => 
     apiRequest(published !== null ? `/inter-service/outbox?published_filter=${published}` : "/inter-service/outbox"),
   dispatchOutbox: () => 

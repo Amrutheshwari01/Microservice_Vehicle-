@@ -1,4 +1,4 @@
-// AgriLink Fleet & Logistics Frontend Application
+// AgriLink Commercial Fleet & Logistics Frontend Application
 
 let mockCitizensList = [];
 let activeBookings = [];
@@ -25,7 +25,7 @@ function showToast(message, type = "info") {
   setTimeout(() => {
     toast.style.opacity = '0';
     setTimeout(() => toast.remove(), 300);
-  }, 4000);
+  }, 4500);
 }
 
 // Tab Switching
@@ -33,18 +33,24 @@ function setupTabs() {
   const buttons = document.querySelectorAll(".tab-btn");
   buttons.forEach(btn => {
     btn.addEventListener("click", () => {
-      buttons.forEach(b => b.classList.remove("active"));
-      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-      
-      btn.classList.add("active");
-      const targetId = btn.getAttribute("data-target");
-      const targetPanel = document.getElementById(targetId);
-      if (targetPanel) {
-        targetPanel.classList.add("active");
-      }
-      refreshActiveTab();
+      switchTab(btn.getAttribute("data-target"));
     });
   });
+}
+
+function switchTab(targetId) {
+  const buttons = document.querySelectorAll(".tab-btn");
+  buttons.forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+
+  const targetBtn = document.querySelector(`.tab-btn[data-target="${targetId}"]`);
+  if (targetBtn) targetBtn.classList.add("active");
+
+  const targetPanel = document.getElementById(targetId);
+  if (targetPanel) {
+    targetPanel.classList.add("active");
+  }
+  refreshActiveTab();
 }
 
 function refreshActiveTab() {
@@ -58,7 +64,7 @@ function refreshActiveTab() {
     loadOwnerVehicles();
     loadOwnerListings();
   } else if (target === "panel-agrilink") {
-    // Defaults ready
+    // Ready for dispatch
   } else if (target === "panel-admin") {
     loadAdminVerificationQueue();
     loadAuditTrail();
@@ -69,52 +75,57 @@ function refreshActiveTab() {
   }
 }
 
-// ----------------- AUTHENTICATION & SESSIONS -----------------
+// ----------------- AUTHENTICATION & CUSTOM CREDENTIALS -----------------
 async function initUserSession() {
   const storedToken = localStorage.getItem("agrilink_token");
   if (storedToken) {
-    const res = await API.getMe();
-    if (res.ok && res.data) {
-      setActor(res.data);
-      updateUserInterface();
-      return;
+    try {
+      const res = await API.getMe();
+      if (res.ok && res.data) {
+        setActor(res.data);
+        updateUserInterface();
+        return;
+      }
+    } catch (e) {
+      console.warn("Session restore failed, falling back to guest mode", e);
     }
   }
 
-  // Fallback to loading demo citizen accounts
+  // Set initial clean guest state
+  clearSession();
   await loadDemoAccounts();
+  updateUserInterface();
 }
 
 async function loadDemoAccounts() {
-  const res = await API.getMockCitizens();
-  if (res.ok && Array.isArray(res.data)) {
-    mockCitizensList = res.data;
-    const select = document.getElementById("actor-select");
-    if (select) {
-      select.innerHTML = "";
-      mockCitizensList.forEach(c => {
-        const opt = document.createElement("option");
-        opt.value = c.citizen_id;
-        opt.textContent = `${c.name} (${c.personas.filter(p => p !== 'CITIZEN').join('/') || 'Renter'})`;
-        select.appendChild(opt);
-      });
+  try {
+    const res = await API.getMockCitizens();
+    if (res.ok && Array.isArray(res.data)) {
+      mockCitizensList = res.data;
+      const select = document.getElementById("actor-select");
+      if (select) {
+        select.innerHTML = '<option value="" disabled selected>Switch to Demo Account</option>';
+        mockCitizensList.forEach(c => {
+          const opt = document.createElement("option");
+          opt.value = c.citizen_id;
+          opt.textContent = `${c.name} (${c.personas.filter(p => p !== 'CITIZEN').join('/') || 'Renter'})`;
+          select.appendChild(opt);
+        });
 
-      if (!currentActor.email && mockCitizensList.length > 0) {
-        setActor(mockCitizensList[0]);
+        select.addEventListener("change", (e) => {
+          const selected = mockCitizensList.find(c => c.citizen_id === e.target.value);
+          if (selected) {
+            setActor(selected);
+            updateUserInterface();
+            showToast(`Switched account to demo user: ${selected.name}`, "info");
+            refreshActiveTab();
+          }
+        });
       }
-
-      select.addEventListener("change", (e) => {
-        const selected = mockCitizensList.find(c => c.citizen_id === e.target.value);
-        if (selected) {
-          setActor(selected);
-          updateUserInterface();
-          showToast(`Switched account to: ${selected.name}`, "info");
-          refreshActiveTab();
-        }
-      });
     }
+  } catch (err) {
+    console.error("Could not fetch mock citizens", err);
   }
-  updateUserInterface();
 }
 
 function updateUserInterface() {
@@ -122,34 +133,124 @@ function updateUserInterface() {
   const roleEl = document.getElementById("user-display-role");
   const avatarEl = document.getElementById("user-avatar-initials");
   const logoutBtn = document.getElementById("logout-btn");
-  const authMainBtn = document.getElementById("auth-main-btn");
+  const userWidget = document.getElementById("user-profile-widget");
+  const walletWidget = document.getElementById("wallet-badge-widget");
+  const loggedOutControls = document.getElementById("logged-out-controls");
+  const guestBanner = document.getElementById("top-guest-banner");
 
-  if (nameEl) nameEl.textContent = currentActor.name || "Sign In";
-  if (roleEl) {
-    const roleText = currentActor.role ? currentActor.role.replace('_', ' ') : (currentActor.personas ? currentActor.personas.filter(p => p !== 'CITIZEN').join(', ') : 'Guest');
-    roleEl.textContent = `${roleText} · KYC ${currentActor.kyc_tier || 'T1'}`;
-  }
-  if (avatarEl) {
-    const initials = (currentActor.name || "GU").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
-    avatarEl.textContent = initials;
-  }
+  const isLoggedIn = !!(currentActor && currentActor.email);
 
-  if (currentActor.email) {
+  if (isLoggedIn) {
+    if (guestBanner) guestBanner.style.display = "none";
+    if (loggedOutControls) loggedOutControls.style.display = "none";
+    if (userWidget) userWidget.style.display = "flex";
+    if (walletWidget) walletWidget.style.display = "flex";
     if (logoutBtn) logoutBtn.style.display = "inline-flex";
-    if (authMainBtn) authMainBtn.style.display = "none";
-  } else {
-    if (logoutBtn) logoutBtn.style.display = "none";
-    if (authMainBtn) authMainBtn.style.display = "inline-flex";
-  }
 
-  // Refresh live wallet balance
-  API.getWalletState().then(res => {
-    if (res.ok && res.data.balances) {
-      const bal = res.data.balances[currentActor.citizen_id] || 0;
-      const el = document.getElementById("wallet-balance-display");
-      if (el) el.textContent = `₹${bal.toLocaleString('en-IN')}`;
+    if (nameEl) nameEl.textContent = currentActor.name || "My Account";
+    if (roleEl) {
+      let roleDisplay = "Customer / Renter";
+      if (currentActor.role === "VEHICLE_OWNER") roleDisplay = "Vehicle Owner";
+      else if (currentActor.role === "DELIVERY_PERSON") roleDisplay = "Logistics Partner";
+      else if (currentActor.role === "ADMIN") roleDisplay = "Platform Admin";
+      roleEl.textContent = roleDisplay;
     }
+    const avatarImgEl = document.getElementById("user-avatar-img");
+    if (currentActor.face_thumbnail && avatarImgEl) {
+      avatarImgEl.src = currentActor.face_thumbnail;
+      avatarImgEl.style.display = "inline-block";
+      if (avatarEl) avatarEl.style.display = "none";
+    } else {
+      if (avatarImgEl) avatarImgEl.style.display = "none";
+      if (avatarEl) {
+        avatarEl.style.display = "flex";
+        const initials = (currentActor.name || "US")
+          .split(" ")
+          .map(n => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2);
+        avatarEl.textContent = initials;
+      }
+    }
+
+    // Refresh live wallet balance
+    API.getWalletState().then(res => {
+      if (res.ok && res.data && res.data.balances) {
+        const bal = res.data.balances[currentActor.citizen_id] || 30000;
+        const el = document.getElementById("wallet-balance-display");
+        if (el) el.textContent = `₹${bal.toLocaleString('en-IN')}`;
+      }
+    });
+  } else {
+    // Guest State
+    if (guestBanner) guestBanner.style.display = "block";
+    if (loggedOutControls) loggedOutControls.style.display = "flex";
+    if (userWidget) userWidget.style.display = "none";
+    if (walletWidget) walletWidget.style.display = "none";
+    if (logoutBtn) logoutBtn.style.display = "none";
+  }
+}
+
+// Robust API error formatter to prevent [object Object]
+function formatApiError(detail, fallback = "An unexpected error occurred") {
+  if (!detail) return fallback;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail.map(err => {
+      const field = err.loc ? err.loc[err.loc.length - 1] : "Field";
+      return `${field}: ${err.msg || 'invalid value'}`;
+    }).join("; ");
+  }
+  if (typeof detail === "object") {
+    if (detail.message) return detail.message;
+    if (detail.msg) return detail.msg;
+    return JSON.stringify(detail);
+  }
+  return String(detail);
+}
+
+// Active camera stream state
+let activeCameraStream = null;
+
+function stopActiveCamera() {
+  if (activeCameraStream) {
+    try {
+      activeCameraStream.getTracks().forEach(track => track.stop());
+    } catch (e) {
+      console.warn("Could not stop camera stream:", e);
+    }
+    activeCameraStream = null;
+  }
+}
+
+async function startCameraForElement(videoEl) {
+  stopActiveCamera();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error("Webcam access is not supported by your browser. Please use photo upload instead.");
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+    audio: false
   });
+  activeCameraStream = stream;
+  videoEl.srcObject = stream;
+  await videoEl.play();
+  return stream;
+}
+
+function captureVideoFrameAsBase64(videoEl, canvasEl, maxWidth = 320) {
+  if (!videoEl || !canvasEl) return null;
+  const vw = videoEl.videoWidth || 320;
+  const vh = videoEl.videoHeight || 240;
+  const scale = Math.min(1, maxWidth / vw);
+  canvasEl.width = Math.round(vw * scale);
+  canvasEl.height = Math.round(vh * scale);
+  const ctx = canvasEl.getContext("2d");
+  ctx.translate(canvasEl.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+  return canvasEl.toDataURL("image/jpeg", 0.90);
 }
 
 function openAuthModal(tab = "signin") {
@@ -158,24 +259,219 @@ function openAuthModal(tab = "signin") {
 }
 
 function switchAuthTab(tab) {
+  stopActiveCamera();
+
   const signinBtn = document.getElementById("auth-tab-signin");
+  const faceloginBtn = document.getElementById("auth-tab-facelogin");
   const signupBtn = document.getElementById("auth-tab-signup");
+
   const signinForm = document.getElementById("auth-form-signin");
+  const faceloginForm = document.getElementById("auth-form-facelogin");
   const signupForm = document.getElementById("auth-form-signup");
+
   const title = document.getElementById("auth-modal-title");
+  const sub = document.getElementById("auth-modal-sub");
+
+  [signinBtn, faceloginBtn, signupBtn].forEach(b => b && b.classList.remove("active"));
+  [signinForm, faceloginForm, signupForm].forEach(f => f && (f.style.display = "none"));
 
   if (tab === "signin") {
-    signinBtn.classList.add("active");
-    signupBtn.classList.remove("active");
-    signinForm.style.display = "block";
-    signupForm.style.display = "none";
+    if (signinBtn) signinBtn.classList.add("active");
+    if (signinForm) signinForm.style.display = "block";
     title.textContent = "Sign In to Your Account";
+    sub.textContent = "Enter your credentials or use instant face scan to access your account";
+  } else if (tab === "facelogin") {
+    if (faceloginBtn) faceloginBtn.classList.add("active");
+    if (faceloginForm) faceloginForm.style.display = "block";
+    title.textContent = "Biometric Face Recognition Sign In";
+    sub.textContent = "Look into your camera or upload a photo to authenticate instantly";
+    startFaceLoginCamera();
   } else {
-    signupBtn.classList.add("active");
-    signinBtn.classList.remove("active");
-    signupForm.style.display = "block";
-    signinForm.style.display = "none";
+    if (signupBtn) signupBtn.classList.add("active");
+    if (signupForm) signupForm.style.display = "block";
     title.textContent = "Create Your Account";
+    sub.textContent = "Register with your custom credentials and optional face biometric login";
+  }
+}
+
+// Face Login Handlers
+async function startFaceLoginCamera() {
+  const videoEl = document.getElementById("face-login-video");
+  const statusEl = document.getElementById("face-login-status");
+  const capturedImg = document.getElementById("face-login-captured-img");
+  const overlay = document.getElementById("face-login-scan-overlay");
+
+  if (capturedImg) capturedImg.style.display = "none";
+  if (overlay) overlay.style.display = "flex";
+
+  if (!videoEl || !statusEl) return;
+
+  try {
+    statusEl.textContent = "Starting camera...";
+    await startCameraForElement(videoEl);
+    statusEl.textContent = "Position your face in the circle and click 'Scan Face & Sign In'";
+  } catch (err) {
+    statusEl.innerHTML = `<span style="color: #dc2626;">Camera unavailable (${err.message}). You can upload a photo below.</span>`;
+  }
+}
+
+async function performFaceLogin(overrideImage = null) {
+  const statusEl = document.getElementById("face-login-status");
+  const emailInput = document.getElementById("face-login-email");
+  const email = emailInput ? emailInput.value.trim() : "";
+
+  let faceImage = overrideImage;
+  if (!faceImage) {
+    const videoEl = document.getElementById("face-login-video");
+    const canvasEl = document.getElementById("face-login-canvas");
+    if (!activeCameraStream) {
+      try {
+        await startFaceLoginCamera();
+        return;
+      } catch (e) {
+        showToast("Please enable camera access or upload a photo.", "error");
+        return;
+      }
+    }
+    faceImage = captureVideoFrameAsBase64(videoEl, canvasEl, 320);
+  }
+
+  if (!faceImage) {
+    showToast("Please position your face or upload a photo.", "error");
+    return;
+  }
+
+  const capturedImg = document.getElementById("face-login-captured-img");
+  if (capturedImg) {
+    capturedImg.src = faceImage;
+    capturedImg.style.display = "block";
+  }
+
+  if (statusEl) statusEl.innerHTML = `<span style="color: #0284c7;">Analyzing biometric facial features...</span>`;
+  showToast("Scanning face biometrics...", "info");
+
+  const res = await API.faceLogin({
+    email: email || null,
+    face_image: faceImage
+  });
+
+  if (res.ok && res.data) {
+    stopActiveCamera();
+    setActor(res.data.user);
+    if (res.data.access_token) {
+      localStorage.setItem("agrilink_token", res.data.access_token);
+      currentActor.jwt_token = res.data.access_token;
+    }
+    closeModals();
+    updateUserInterface();
+    showToast(`Face recognized! Welcome back, ${res.data.user.name}.`, "success");
+
+    if (res.data.user.role === "VEHICLE_OWNER") {
+      switchTab("panel-owner");
+    } else {
+      refreshActiveTab();
+    }
+  } else {
+    const errMsg = formatApiError(res.data?.detail, "Face not recognized. Please center face or use password.");
+    if (statusEl) statusEl.innerHTML = `<span style="color: #dc2626;">${errMsg}</span>`;
+    showToast(`Face verification failed: ${errMsg}`, "error");
+  }
+}
+
+function handleFaceLoginFile(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const b64 = evt.target.result;
+    performFaceLogin(b64);
+  };
+  reader.readAsDataURL(file);
+}
+
+// Sign Up Face Enrollment Handlers
+async function startSignupCamera() {
+  const cameraWrap = document.getElementById("signup-camera-wrap");
+  const videoEl = document.getElementById("signup-face-video");
+  const btnStart = document.getElementById("btn-start-signup-camera");
+  const btnCapture = document.getElementById("btn-capture-signup-face");
+  const previewWrap = document.getElementById("signup-face-preview-wrap");
+
+  try {
+    if (cameraWrap) cameraWrap.style.display = "block";
+    if (previewWrap) previewWrap.style.display = "none";
+    await startCameraForElement(videoEl);
+    if (btnStart) btnStart.style.display = "none";
+    if (btnCapture) btnCapture.style.display = "inline-block";
+  } catch (err) {
+    showToast(`Camera error: ${err.message}. Please upload a photo instead.`, "error");
+  }
+}
+
+function captureSignupFace() {
+  const videoEl = document.getElementById("signup-face-video");
+  const canvasEl = document.getElementById("signup-face-canvas");
+  const hiddenInput = document.getElementById("signup-face-image");
+  const previewWrap = document.getElementById("signup-face-preview-wrap");
+  const previewImg = document.getElementById("signup-face-preview-img");
+  const cameraWrap = document.getElementById("signup-camera-wrap");
+  const btnCapture = document.getElementById("btn-capture-signup-face");
+  const btnRetake = document.getElementById("btn-retake-signup-face");
+
+  const b64 = captureVideoFrameAsBase64(videoEl, canvasEl, 280);
+  if (!b64) return;
+
+  stopActiveCamera();
+  if (cameraWrap) cameraWrap.style.display = "none";
+  if (hiddenInput) hiddenInput.value = b64;
+  if (previewImg) previewImg.src = b64;
+  if (previewWrap) previewWrap.style.display = "block";
+  if (btnCapture) btnCapture.style.display = "none";
+  if (btnRetake) btnRetake.style.display = "inline-block";
+  showToast("Face biometric captured! You can now complete registration.", "success");
+}
+
+function retakeSignupFace() {
+  const hiddenInput = document.getElementById("signup-face-image");
+  const previewWrap = document.getElementById("signup-face-preview-wrap");
+  const btnRetake = document.getElementById("btn-retake-signup-face");
+  if (hiddenInput) hiddenInput.value = "";
+  if (previewWrap) previewWrap.style.display = "none";
+  if (btnRetake) btnRetake.style.display = "none";
+  startSignupCamera();
+}
+
+function handleSignupFaceFile(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const b64 = evt.target.result;
+    const hiddenInput = document.getElementById("signup-face-image");
+    const previewWrap = document.getElementById("signup-face-preview-wrap");
+    const previewImg = document.getElementById("signup-face-preview-img");
+    const btnStart = document.getElementById("btn-start-signup-camera");
+    const btnRetake = document.getElementById("btn-retake-signup-face");
+
+    if (hiddenInput) hiddenInput.value = b64;
+    if (previewImg) previewImg.src = b64;
+    if (previewWrap) previewWrap.style.display = "block";
+    if (btnStart) btnStart.style.display = "none";
+    if (btnRetake) btnRetake.style.display = "inline-block";
+    showToast("Face photo uploaded and ready for enrollment!", "success");
+  };
+  reader.readAsDataURL(file);
+}
+
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  if (input.type === "password") {
+    input.type = "text";
+    btn.textContent = "Hide";
+  } else {
+    input.type = "password";
+    btn.textContent = "Show";
   }
 }
 
@@ -190,13 +486,14 @@ async function handleSignIn() {
   const password = document.getElementById("signin-password").value;
 
   if (!email || !password) {
-    showToast("Please enter email and password.", "error");
+    showToast("Please enter your email and password.", "error");
     return;
   }
 
   showToast("Signing in...", "info");
   const res = await API.login({ email, password });
   if (res.ok && res.data) {
+    stopActiveCamera();
     setActor(res.data.user);
     if (res.data.access_token) {
       localStorage.setItem("agrilink_token", res.data.access_token);
@@ -205,9 +502,15 @@ async function handleSignIn() {
     closeModals();
     updateUserInterface();
     showToast(`Welcome back, ${res.data.user.name}!`, "success");
-    refreshActiveTab();
+
+    // Seamless navigation based on role
+    if (res.data.user.role === "VEHICLE_OWNER") {
+      switchTab("panel-owner");
+    } else {
+      refreshActiveTab();
+    }
   } else {
-    showToast(`Sign in failed: ${res.data?.detail || 'Invalid email or password'}`, "error");
+    showToast(`Sign in failed: ${formatApiError(res.data?.detail, 'Invalid email or password')}`, "error");
   }
 }
 
@@ -218,13 +521,20 @@ async function handleSignUp() {
   const phone = document.getElementById("signup-phone").value.trim();
   const role = document.getElementById("signup-role").value;
   const licence = document.getElementById("signup-licence").value;
+  const autoLogin = document.getElementById("signup-auto-login").checked;
+  const faceImage = document.getElementById("signup-face-image")?.value || null;
 
   if (!name || !email || !password) {
-    showToast("Please fill in your name, email, and password.", "error");
+    showToast("Please fill in your name, email/username, and password.", "error");
     return;
   }
 
-  showToast("Creating your account...", "info");
+  if (password.length < 4) {
+    showToast("Password must be at least 4 characters.", "error");
+    return;
+  }
+
+  showToast("Registering your new account...", "info");
   const res = await API.signUp({
     name,
     email,
@@ -232,28 +542,45 @@ async function handleSignUp() {
     phone: phone || null,
     role,
     driving_licence_classes: licence,
-    kyc_tier: "T2"
+    kyc_tier: "T2",
+    face_image: faceImage
   });
 
   if (res.ok && res.data) {
-    setActor(res.data.user);
-    if (res.data.access_token) {
-      localStorage.setItem("agrilink_token", res.data.access_token);
-      currentActor.jwt_token = res.data.access_token;
+    stopActiveCamera();
+    if (autoLogin) {
+      // Auto sign in user immediately
+      setActor(res.data.user);
+      if (res.data.access_token) {
+        localStorage.setItem("agrilink_token", res.data.access_token);
+        currentActor.jwt_token = res.data.access_token;
+      }
+      closeModals();
+      updateUserInterface();
+      showToast(`Account created! Welcome, ${res.data.user.name}. ₹30,000 welcome credit added to your wallet!`, "success");
+
+      if (role === "VEHICLE_OWNER") {
+        switchTab("panel-owner");
+      } else {
+        refreshActiveTab();
+      }
+    } else {
+      // User opted for the luxury of typing credentials and logging in themselves!
+      switchAuthTab("signin");
+      document.getElementById("signin-email").value = email;
+      document.getElementById("signin-password").value = "";
+      document.getElementById("signin-password").focus();
+      showToast(`Account created for ${name}! Please enter your password to sign in.`, "success");
     }
-    closeModals();
-    updateUserInterface();
-    showToast(`Account created! Welcome, ${res.data.user.name}. ₹30,000 welcome credit added to your wallet!`, "success");
-    refreshActiveTab();
   } else {
-    showToast(`Sign up failed: ${res.data?.detail || 'Registration error'}`, "error");
+    showToast(`Registration failed: ${formatApiError(res.data?.detail, 'Please check your inputs')}`, "error");
   }
 }
 
 function handleSignOut() {
   clearSession();
   updateUserInterface();
-  showToast("Signed out successfully.", "info");
+  showToast("You have been signed out.", "info");
   refreshActiveTab();
 }
 
@@ -263,7 +590,7 @@ function setupLanguageSwitcher() {
   if (select) {
     select.addEventListener("change", (e) => {
       setLanguage(e.target.value);
-      showToast(`Language set to ${e.target.value.toUpperCase()}`, "info");
+      showToast(`Language changed to ${e.target.value.toUpperCase()}`, "info");
     });
   }
 }
@@ -278,7 +605,7 @@ function setupVoice() {
       toggleVoiceRecognition(
         (transcript) => {
           searchInput.value = transcript;
-          showToast(`Voice transcribed: "${transcript}"`, "success");
+          showToast(`Voice query transcribed: "${transcript}"`, "success");
           triggerFleetSearch();
         },
         (recording) => {
@@ -314,49 +641,90 @@ function triggerFleetSearch() {
   loadFleet(params);
 }
 
-// ----------------- FLEET & RENTER MODULE -----------------
+function resetFleetFilters() {
+  document.getElementById("fleet-search-input").value = "";
+  document.getElementById("filter-class").value = "";
+  document.getElementById("filter-capacity").value = "";
+  document.getElementById("filter-price").value = "";
+  loadFleet();
+}
+
+// ----------------- FLEET MARKETPLACE MODULE -----------------
 async function loadFleet(filters = {}) {
   const grid = document.getElementById("fleet-grid");
+  const badge = document.getElementById("fleet-count-badge");
   if (!grid) return;
-  grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 2rem;">Loading fleet...</div>`;
+  grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 2.5rem; color: var(--text-muted);">Loading available fleet...</div>`;
 
   const res = await API.searchFleet(filters);
   if (res.ok && Array.isArray(res.data)) {
     currentFleetList = res.data;
+    if (badge) badge.textContent = `${currentFleetList.length} Vehicles Available`;
+
     if (currentFleetList.length === 0) {
-      grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 2rem; color: var(--text-muted);">No bookable vehicles found matching your criteria.</div>`;
+      grid.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; padding: 3rem 1.5rem; background: white; border-radius: var(--radius-md); border: 1px dashed var(--border);">
+          <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🚜</div>
+          <h3 style="font-weight: 700; color: #1e293b; margin-bottom: 0.35rem;">No commercial vehicles found matching your criteria</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">Try clearing your filters or searching another market yard or vehicle category.</p>
+          <button class="btn btn-outline btn-sm" onclick="resetFleetFilters()">Reset All Filters</button>
+        </div>
+      `;
       return;
     }
-    grid.innerHTML = currentFleetList.map(item => `
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <span class="badge badge-blue">${item.vehicle_class.replace('_', ' ')}</span>
-            <div class="card-title" style="margin-top: 0.35rem;">${item.make_model}</div>
-            <div style="font-size: 0.8rem; color: var(--text-muted);">${item.registration_number}</div>
+
+    grid.innerHTML = currentFleetList.map(item => {
+      let icon = "🚛";
+      if (item.vehicle_class === "TRACTOR") icon = "🚜";
+      else if (item.vehicle_class === "AUTO_RICKSHAW") icon = "🛺";
+      else if (item.vehicle_class === "HEAVY_COMMERCIAL") icon = "🚚";
+
+      const formattedClass = item.vehicle_class.replace(/_/g, ' ');
+
+      return `
+        <div class="card vehicle-card">
+          <div class="card-header">
+            <div>
+              <span class="vehicle-category-badge">${icon} ${formattedClass}</span>
+              <div class="card-title">${item.make_model}</div>
+              <div style="font-size: 0.8rem; font-weight: 700; color: #475569; letter-spacing: 0.05em; margin-top: 0.15rem;">
+                ${item.registration_number}
+              </div>
+            </div>
+            <span class="badge badge-green">✓ ${item.status}</span>
           </div>
-          <span class="badge badge-green">${item.status}</span>
-        </div>
-        <div style="margin: 0.75rem 0; font-size: 0.88rem; display: flex; flex-direction: column; gap: 0.35rem;">
-          <div><strong>Capacity:</strong> ${item.capacity_kg} kg payload</div>
-          <div><strong>Fuel:</strong> ${item.fuel_type}</div>
-          <div><strong>Pickup Location:</strong> 📍 ${item.pickup_location}</div>
-        </div>
-        <div style="display: flex; align-items: baseline; justify-content: space-between; border-top: 1px solid #f1f5f9; padding-top: 0.75rem; margin-top: 0.75rem;">
-          <div>
-            <span style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">₹${item.rate_per_day}</span>
-            <span style="font-size: 0.8rem; color: var(--text-muted);">/ day</span>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">(₹${item.rate_per_hour}/hr · ₹${item.rate_per_km}/km)</div>
+
+          <div style="margin: 0.75rem 0 1rem 0; font-size: 0.88rem; display: flex; flex-direction: column; gap: 0.4rem; color: #334155;">
+            <div><strong>Payload Capacity:</strong> ${item.capacity_kg.toLocaleString()} kg</div>
+            <div><strong>Fuel Type:</strong> ${item.fuel_type}</div>
+            <div><strong>Pickup Location:</strong> 📍 ${item.pickup_location}</div>
           </div>
-          <div style="display: flex; gap: 0.5rem;">
-            <button class="btn btn-secondary btn-sm" onclick="openAvailabilityModal('${item.vehicle_id}')">Calendar</button>
-            <button class="btn btn-primary btn-sm" onclick="openBookingModal('${item.vehicle_id}', '${item.make_model}', ${item.rate_per_day}, ${item.security_deposit})">${t("book_now_btn")}</button>
+
+          <div style="margin-top: auto; border-top: 1px solid #f1f5f9; padding-top: 0.85rem; display: flex; align-items: flex-end; justify-content: space-between;">
+            <div>
+              <div>
+                <span style="font-size: 1.4rem; font-weight: 800; color: var(--primary);">₹${item.rate_per_day.toLocaleString()}</span>
+                <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">/ day</span>
+              </div>
+              <div style="font-size: 0.74rem; color: var(--text-muted);">
+                ₹${item.rate_per_hour}/hr · ₹${item.rate_per_km}/km · Deposit: ₹${item.security_deposit}
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 0.45rem;">
+              <button class="btn btn-secondary btn-sm" onclick="openAvailabilityModal('${item.vehicle_id}')" title="Check busy/free calendar slots">
+                Calendar
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="openBookingModal('${item.vehicle_id}', '${item.make_model}', ${item.rate_per_day}, ${item.security_deposit})">
+                ${t("book_now_btn")}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    `).join("");
+      `;
+    }).join("");
   } else {
-    grid.innerHTML = `<div style="color: var(--danger); padding: 1rem;">Failed to load fleet: ${res.data?.detail || 'Server error'}</div>`;
+    grid.innerHTML = `<div style="color: var(--danger); padding: 1.5rem; text-align: center;">Failed to load fleet: ${formatApiError(res.data?.detail, 'Server error')}</div>`;
   }
 }
 
@@ -364,28 +732,36 @@ async function loadRenterBookings() {
   const tbody = document.getElementById("renter-bookings-tbody");
   if (!tbody) return;
 
+  // If user is guest, show friendly notice
+  if (!currentActor.email) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Please <button class="link-btn" onclick="openAuthModal('signin')">sign in</button> or <button class="link-btn" onclick="openAuthModal('signup')">create an account</button> to view your active bookings.</td></tr>`;
+    return;
+  }
+
   const res = await API.listBookings(currentActor.citizen_id);
   if (res.ok && Array.isArray(res.data)) {
     activeBookings = res.data;
     if (activeBookings.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No active bookings for this account.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No active bookings for this account. Browse the fleet above to book your first vehicle!</td></tr>`;
       return;
     }
     tbody.innerHTML = activeBookings.map(b => `
       <tr>
         <td><strong>${b.booking_ref}</strong></td>
         <td>${new Date(b.start_time).toLocaleDateString()} ${new Date(b.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-        <td>₹${b.total_hold_amount} (${b.wallet_hold_status})</td>
+        <td><strong>₹${b.total_hold_amount.toLocaleString()}</strong> <span style="font-size: 0.78rem; color: var(--text-muted);">(${b.wallet_hold_status})</span></td>
         <td><span class="badge ${b.status === 'CONFIRMED' ? 'badge-blue' : b.status === 'ACTIVE' ? 'badge-purple' : b.status === 'COMPLETED' ? 'badge-green' : 'badge-red'}">${b.status}</span></td>
-        <td>${b.agrilink_job_ref || 'Direct Rental'}</td>
+        <td>${b.agrilink_job_ref || 'Direct Customer Rental'}</td>
         <td>
           ${b.status === 'CONFIRMED' ? `
-            <button class="btn btn-primary btn-sm" onclick="openHandoverModal('${b.id}', '${b.booking_ref}')">${t("handover_btn")}</button>
-            <button class="btn btn-secondary btn-sm" onclick="openCancelModal('${b.id}', '${b.booking_ref}')">${t("cancel_btn")}</button>
+            <div style="display: flex; gap: 0.35rem;">
+              <button class="btn btn-primary btn-sm" onclick="openHandoverModal('${b.id}', '${b.booking_ref}')">${t("handover_btn")}</button>
+              <button class="btn btn-secondary btn-sm" onclick="openCancelModal('${b.id}', '${b.booking_ref}')">${t("cancel_btn")}</button>
+            </div>
           ` : b.status === 'ACTIVE' ? `
             <button class="btn btn-primary btn-sm" onclick="openReturnModal('${b.id}', '${b.booking_ref}')">${t("return_btn")}</button>
           ` : `
-            <span style="font-size: 0.8rem; color: var(--text-muted);">Settled</span>
+            <span style="font-size: 0.82rem; color: var(--success); font-weight: 700;">✓ Settled</span>
           `}
         </td>
       </tr>
@@ -398,31 +774,35 @@ async function openAvailabilityModal(vehicleId) {
   const modal = document.getElementById("calendar-modal");
   const body = document.getElementById("calendar-modal-body");
   modal.classList.add("active");
-  body.innerHTML = `<div>Loading calendar slots...</div>`;
+  body.innerHTML = `<div style="padding: 1.5rem; text-align: center;">Loading availability calendar...</div>`;
 
   const res = await API.getAvailability(vehicleId);
   if (res.ok && res.data) {
     const data = res.data;
     body.innerHTML = `
-      <div style="margin-bottom: 1rem;">
+      <div style="margin-bottom: 1.25rem;">
         <h4>${data.registration_number}</h4>
-        <div style="font-size: 0.85rem; color: var(--text-muted);">Status: <span class="badge badge-green">${data.vehicle_status}</span> · Listing: ${data.listing_status}</div>
+        <div style="font-size: 0.86rem; color: var(--text-muted); margin-top: 0.25rem;">Status: <span class="badge badge-green">${data.vehicle_status}</span> · Listing: ${data.listing_status}</div>
       </div>
       <div>
-        <h5 style="margin-bottom: 0.5rem;">Reserved / Confirmed Time Slots:</h5>
-        ${data.busy_slots.length === 0 ? `<div style="padding: 1rem; background: #f8fafc; border-radius: var(--radius-sm); color: var(--text-muted);">No existing bookings. All slots currently available!</div>` : `
+        <h5 style="margin-bottom: 0.65rem; color: #1e293b;">Reserved Time Slots:</h5>
+        ${data.busy_slots.length === 0 ? `
+          <div style="padding: 1.25rem; background: #f0fdf4; border-radius: var(--radius-sm); color: #166534; border: 1px solid #bbf7d0;">
+            ✓ All calendar slots are currently open and available for instant booking!
+          </div>
+        ` : `
           <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem;">
             ${data.busy_slots.map(s => `
-              <li style="padding: 0.6rem 0.85rem; background: #fee2e2; border-radius: var(--radius-sm); font-size: 0.85rem; display: flex; justify-content: space-between;">
+              <li style="padding: 0.65rem 0.95rem; background: #fee2e2; border-radius: var(--radius-sm); font-size: 0.85rem; display: flex; justify-content: space-between; border: 1px solid #fecaca;">
                 <span>🔒 ${new Date(s.start_time).toLocaleString()} — ${new Date(s.end_time).toLocaleString()}</span>
-                <strong>${s.booking_ref}</strong>
+                <strong>Ref: ${s.booking_ref}</strong>
               </li>
             `).join("")}
           </ul>
         `}
       </div>
-      <div style="margin-top: 1.25rem; font-size: 0.82rem; color: #166534; background: #dcfce7; padding: 0.65rem; border-radius: var(--radius-sm);">
-        ✓ Guaranteed calendar exclusion prevents overlapping reservations for this vehicle.
+      <div style="margin-top: 1.25rem; font-size: 0.82rem; color: #166534; background: #dcfce7; padding: 0.75rem; border-radius: var(--radius-sm);">
+        ✓ Strict calendar lock guarantees zero overlapping reservations on this commercial vehicle.
       </div>
     `;
   }
@@ -431,6 +811,13 @@ async function openAvailabilityModal(vehicleId) {
 // Booking Modal
 let bookingVehicleId = null;
 function openBookingModal(vehicleId, makeModel, ratePerDay, deposit) {
+  // Guard for guest users: require login/signup
+  if (!currentActor.email) {
+    showToast("Please sign in or create an account to book vehicles.", "info");
+    openAuthModal("signin");
+    return;
+  }
+
   bookingVehicleId = vehicleId;
   const modal = document.getElementById("booking-modal");
   document.getElementById("booking-modal-title").textContent = `Book ${makeModel}`;
@@ -441,7 +828,11 @@ function openBookingModal(vehicleId, makeModel, ratePerDay, deposit) {
   const end = new Date(tomorrow);
   end.setHours(18, 0, 0, 0);
 
-  const formatIsoForInput = (d) => d.toISOString().slice(0, 16);
+  const formatIsoForInput = (d) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
   document.getElementById("booking-start-time").value = formatIsoForInput(tomorrow);
   document.getElementById("booking-end-time").value = formatIsoForInput(end);
 
@@ -459,22 +850,22 @@ async function updatePricePreview() {
   if (res.ok && res.data) {
     const p = res.data;
     previewDiv.innerHTML = `
-      <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem; font-size: 0.88rem;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-          <span>Estimated Duration:</span>
+      <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.95rem; font-size: 0.88rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+          <span>Rental Duration:</span>
           <strong>${p.duration_hours} hours (${p.duration_days} days)</strong>
         </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-          <span>Base Rent Amount:</span>
-          <strong>₹${p.base_rent_amount}</strong>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+          <span>Base Rent:</span>
+          <strong>₹${p.base_rent_amount.toLocaleString()}</strong>
         </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-          <span>Security Deposit (Refundable):</span>
-          <strong>₹${p.deposit_amount}</strong>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+          <span>Security Deposit (100% Refundable):</span>
+          <strong>₹${p.deposit_amount.toLocaleString()}</strong>
         </div>
-        <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 0.5rem; margin-top: 0.5rem; font-size: 1rem; color: var(--primary);">
-          <span>Total Wallet Fund Hold:</span>
-          <strong>₹${p.total_hold_amount}</strong>
+        <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 0.5rem; margin-top: 0.5rem; font-size: 1.05rem; color: var(--primary);">
+          <span>Total Wallet Escrow Hold:</span>
+          <strong>₹${p.total_hold_amount.toLocaleString()}</strong>
         </div>
       </div>
     `;
@@ -491,16 +882,16 @@ async function confirmBooking() {
     end_time: new Date(end).toISOString()
   };
 
-  showToast("Reserving funds from wallet and confirming booking...", "info");
+  showToast("Confirming booking and securing funds from wallet...", "info");
   const res = await API.createBooking(payload);
   if (res.ok) {
-    showToast(`Booking Confirmed! Ref: ${res.data.booking_ref} (Funds Held: ₹${res.data.total_hold_amount})`, "success");
+    showToast(`Booking Confirmed! Reference: ${res.data.booking_ref} (Funds Reserved: ₹${res.data.total_hold_amount})`, "success");
     closeModals();
     loadFleet();
     loadRenterBookings();
     updateUserInterface();
   } else {
-    showToast(`Booking Failed: ${res.data?.detail || 'Eligibility or overlap conflict'}`, "error");
+    showToast(`Booking Failed: ${formatApiError(res.data?.detail, 'Schedule conflict or insufficient wallet balance')}`, "error");
   }
 }
 
@@ -525,12 +916,12 @@ async function submitHandover() {
   });
 
   if (res.ok) {
-    showToast("Vehicle Handover recorded! Trip is now active.", "success");
+    showToast("Vehicle handover recorded! Trip is now in progress.", "success");
     closeModals();
     loadRenterBookings();
     loadFleet();
   } else {
-    showToast(`Handover error: ${res.data?.detail}`, "error");
+    showToast(`Handover error: ${formatApiError(res.data?.detail)}`, "error");
   }
 }
 
@@ -564,7 +955,7 @@ async function submitReturn() {
     loadFleet();
     updateUserInterface();
   } else {
-    showToast(`Return settlement error: ${res.data?.detail}`, "error");
+    showToast(`Return settlement error: ${formatApiError(res.data?.detail)}`, "error");
   }
 }
 
@@ -585,7 +976,7 @@ async function submitCancellation() {
     loadFleet();
     updateUserInterface();
   } else {
-    showToast(`Cancellation error: ${res.data?.detail}`, "error");
+    showToast(`Cancellation error: ${formatApiError(res.data?.detail)}`, "error");
   }
 }
 
@@ -593,28 +984,38 @@ async function submitCancellation() {
 async function loadOwnerVehicles() {
   const listDiv = document.getElementById("owner-vehicles-list");
   if (!listDiv) return;
-  listDiv.innerHTML = `<div>Loading fleet vehicles...</div>`;
+
+  if (!currentActor.email) {
+    listDiv.innerHTML = `<div style="color: var(--text-muted); padding: 1.5rem; text-align: center;">Please <button class="link-btn" onclick="openAuthModal('signin')">sign in</button> or <button class="link-btn" onclick="openAuthModal('signup')">create an account</button> to view your registered fleet.</div>`;
+    return;
+  }
+
+  listDiv.innerHTML = `<div style="padding: 1rem; color: var(--text-muted);">Loading fleet vehicles...</div>`;
 
   const res = await API.listVehicles(currentActor.citizen_id);
   if (res.ok && Array.isArray(res.data)) {
     if (res.data.length === 0) {
-      listDiv.innerHTML = `<div style="color: var(--text-muted); padding: 1rem;">No vehicles registered under this account yet. Use the registration form to add your first commercial vehicle.</div>`;
+      listDiv.innerHTML = `<div style="color: var(--text-muted); padding: 1.25rem;">No vehicles registered under this account yet. Use the registration form to add your first commercial vehicle.</div>`;
       return;
     }
     listDiv.innerHTML = res.data.map(v => `
-      <div class="card" style="margin-bottom: 1rem;">
+      <div class="card" style="margin-bottom: 1rem; border-left: 4px solid var(--primary);">
         <div class="card-header">
           <div>
-            <span class="badge badge-blue">${v.vehicle_class.replace('_', ' ')}</span>
-            <span class="card-title" style="margin-top: 0.25rem;">${v.make_model}</span>
-            <div style="font-size: 0.8rem; color: var(--text-muted);">${v.registration_number} · Owner: ${v.owner_name}</div>
+            <span class="vehicle-category-badge">${v.vehicle_class.replace(/_/g, ' ')}</span>
+            <div class="card-title">${v.make_model}</div>
+            <div style="font-size: 0.82rem; font-weight: 700; color: #475569; letter-spacing: 0.05em; margin-top: 0.15rem;">
+              ${v.registration_number}
+            </div>
           </div>
-          <div>
-            <span class="badge ${v.verification_status === 'VERIFIED' ? 'badge-green' : v.verification_status === 'REJECTED' ? 'badge-red' : 'badge-yellow'}">${v.verification_status}</span>
+          <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end;">
+            <span class="badge ${v.verification_status === 'VERIFIED' ? 'badge-green' : v.verification_status === 'REJECTED' ? 'badge-red' : 'badge-yellow'}">
+              ${v.verification_status}
+            </span>
             <span class="badge badge-purple">${v.status}</span>
           </div>
         </div>
-        <div style="font-size: 0.85rem; margin-bottom: 0.75rem;">
+        <div style="font-size: 0.86rem; margin-bottom: 0.75rem; color: #334155;">
           <div>Payload: ${v.capacity_kg} kg · Fuel: ${v.fuel_type} · Seating: ${v.seating_capacity}</div>
           ${v.verification_reason ? `<div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">Verification Note: ${v.verification_reason}</div>` : ''}
         </div>
@@ -630,9 +1031,19 @@ async function loadOwnerVehicles() {
 async function loadOwnerListings() {
   const container = document.getElementById("owner-listings-table");
   if (!container) return;
+
+  if (!currentActor.email) {
+    container.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Please sign in to view your published listings.</td></tr>`;
+    return;
+  }
+
   const res = await API.listListings();
   if (res.ok && Array.isArray(res.data)) {
     const myListings = res.data.filter(l => l.owner_citizen_id === currentActor.citizen_id);
+    if (myListings.length === 0) {
+      container.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.25rem;">No published listings yet. Register a vehicle and click Publish Listing!</td></tr>`;
+      return;
+    }
     container.innerHTML = myListings.map(l => `
       <tr>
         <td><strong>${l.pickup_location}</strong></td>
@@ -656,12 +1067,18 @@ async function toggleListingStatus(listingId, newStatus) {
     loadOwnerListings();
     loadFleet();
   } else {
-    showToast(`Update rejected: ${res.data?.detail}`, "error");
+    showToast(`Update rejected: ${formatApiError(res.data?.detail)}`, "error");
   }
 }
 
 // Vehicle Registration Submit
 async function submitVehicleRegistration() {
+  if (!currentActor.email) {
+    showToast("Please sign in or create an account to register commercial vehicles.", "info");
+    openAuthModal("signin");
+    return;
+  }
+
   const regNo = document.getElementById("reg-number").value.trim().toUpperCase();
   const vClass = document.getElementById("reg-class").value;
   const makeModel = document.getElementById("reg-make").value.trim();
@@ -692,14 +1109,14 @@ async function submitVehicleRegistration() {
     loadOwnerVehicles();
     refreshActiveTab();
   } else {
-    showToast(`Registration failed: ${res.data?.detail}`, "error");
+    showToast(`Registration failed: ${formatApiError(res.data?.detail)}`, "error");
   }
 }
 
 // Smart OCR Helper
 async function runOcrExtract() {
   const prompt = document.getElementById("reg-make").value || "KA-04-MK-4421 Tata Ace Gold";
-  showToast("Invoking Smart OCR extraction...", "info");
+  showToast("Running Smart OCR document extraction...", "info");
   const res = await API.extractOcr(prompt);
   if (res.ok && res.data) {
     const o = res.data;
@@ -720,22 +1137,22 @@ async function openComplianceModal(vehicleId, regNo) {
   const modal = document.getElementById("compliance-modal");
   const listDiv = document.getElementById("comp-docs-list");
   modal.classList.add("active");
-  listDiv.innerHTML = "<div>Loading compliance documents...</div>";
+  listDiv.innerHTML = "<div style='padding: 1rem;'>Loading compliance certificates...</div>";
 
   const res = await API.getCompliance(vehicleId);
   if (res.ok && res.data) {
     const c = res.data;
     const badgeClass = c.is_compliant ? "badge-green" : "badge-red";
     listDiv.innerHTML = `
-      <div style="margin-bottom: 1rem; padding: 0.75rem; background: ${c.is_compliant ? '#dcfce7' : '#fee2e2'}; border-radius: var(--radius-sm);">
+      <div style="margin-bottom: 1.25rem; padding: 0.85rem; background: ${c.is_compliant ? '#dcfce7' : '#fee2e2'}; border-radius: var(--radius-sm); border: 1px solid ${c.is_compliant ? '#bbf7d0' : '#fecaca'};">
         <strong>Compliance Status:</strong> <span class="badge ${badgeClass}">${c.status_summary}</span>
-        ${c.blocking_reason ? `<div style="font-size: 0.85rem; color: #b91c1c; margin-top: 0.35rem;">⚠️ ${c.blocking_reason}</div>` : ''}
+        ${c.blocking_reason ? `<div style="font-size: 0.85rem; color: #b91c1c; margin-top: 0.4rem;">⚠️ ${c.blocking_reason}</div>` : ''}
       </div>
       <h5>Registered Certificates:</h5>
-      <ul style="list-style: none; margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+      <ul style="list-style: none; margin-top: 0.65rem; display: flex; flex-direction: column; gap: 0.5rem;">
         ${c.valid_documents.concat(c.expired_documents).map(d => `
-          <li style="padding: 0.5rem 0.75rem; background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem; display: flex; justify-content: space-between;">
-            <span>${d.document_type}: ${d.document_number}</span>
+          <li style="padding: 0.6rem 0.85rem; background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.86rem; display: flex; justify-content: space-between;">
+            <span><strong>${d.document_type}:</strong> ${d.document_number}</span>
             <span class="badge ${new Date(d.expiry_date) < new Date() ? 'badge-red' : 'badge-green'}">
               Expires: ${new Date(d.expiry_date).toLocaleDateString()}
             </span>
@@ -764,14 +1181,14 @@ async function uploadNewComplianceDoc() {
   });
 
   if (res.ok) {
-    showToast(`${type} document uploaded successfully!`, "success");
+    showToast(`${type} certificate uploaded successfully!`, "success");
     openComplianceModal(currentComplianceVehicleId, document.getElementById("comp-modal-reg").textContent);
   } else {
-    showToast(`Upload failed: ${res.data?.detail}`, "error");
+    showToast(`Upload failed: ${formatApiError(res.data?.detail)}`, "error");
   }
 }
 
-// ----------------- AGRILINK DELIVERY SIMULATOR -----------------
+// ----------------- LOGISTICS & DISPATCH SIMULATOR -----------------
 async function submitAgriLinkAssignment() {
   const jobRef = document.getElementById("agl-job-ref").value.trim();
   const vClass = document.getElementById("agl-vclass").value;
@@ -783,7 +1200,7 @@ async function submitAgriLinkAssignment() {
   const end = new Date(start);
   end.setHours(end.getHours() + 6);
 
-  showToast(`Dispatching vehicle request for job ${jobRef}...`, "info");
+  showToast(`Dispatching vehicle matching request for job ${jobRef}...`, "info");
   const res = await API.assignAgriLinkVehicle({
     agrilink_job_ref: jobRef,
     delivery_person_citizen_id: currentActor.citizen_id,
@@ -800,25 +1217,28 @@ async function submitAgriLinkAssignment() {
   const outputDiv = document.getElementById("agl-result-display");
   if (res.ok) {
     const b = res.data;
-    showToast(`Vehicle assigned! Ref: ${b.booking_ref} (Vehicle in In Transit status)`, "success");
+    showToast(`Vehicle assigned! Reference: ${b.booking_ref} (Vehicle in In Transit status)`, "success");
     outputDiv.innerHTML = `
-      <div style="background: #dcfce7; border: 1px solid #86efac; border-radius: var(--radius-sm); padding: 1rem; color: #166534;">
-        <h4 style="margin-bottom: 0.5rem;">✓ Logistics Vehicle Assignment Succeeded</h4>
-        <div><strong>AgriLink Job Reference:</strong> ${b.agrilink_job_ref}</div>
-        <div><strong>Assigned Booking Ref:</strong> ${b.booking_ref}</div>
-        <div><strong>Delivery Partner:</strong> ${b.renter_name} (${b.renter_citizen_id})</div>
-        <div><strong>Vehicle Status:</strong> <span class="badge badge-purple">In Transit</span></div>
-        <div><strong>Delivery Hold Amount:</strong> ₹${b.total_hold_amount}</div>
-        <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #15803d;">
-          Cross-microservice event 'VehicleAssigned' dispatched to Outbox for logistics tracking.
+      <div style="background: #dcfce7; border: 1px solid #86efac; border-radius: var(--radius-sm); padding: 1.25rem; color: #166534;">
+        <h4 style="margin-bottom: 0.65rem; font-weight: 800;">✓ Logistics Vehicle Assigned Successfully</h4>
+        <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.9rem;">
+          <div><strong>Delivery Job Reference:</strong> ${b.agrilink_job_ref}</div>
+          <div><strong>Assigned Booking Ref:</strong> ${b.booking_ref}</div>
+          <div><strong>Delivery Partner:</strong> ${b.renter_name}</div>
+          <div><strong>Vehicle Status:</strong> <span class="badge badge-purple">In Transit</span></div>
+          <div><strong>Logistics Escrow Hold:</strong> ₹${b.total_hold_amount}</div>
+        </div>
+        <div style="margin-top: 0.75rem; font-size: 0.82rem; color: #15803d; border-top: 1px solid #bbf7d0; padding-top: 0.5rem;">
+          Real-time event 'VehicleAssigned' dispatched to outbox for logistics route tracking.
         </div>
       </div>
     `;
     loadFleet();
     loadOutboxEvents();
   } else {
-    showToast(`Assignment failed: ${res.data?.detail}`, "error");
-    outputDiv.innerHTML = `<div style="background: #fee2e2; border: 1px solid #fca5a5; padding: 1rem; color: #b91c1c;">${res.data?.detail}</div>`;
+    const errMsg = formatApiError(res.data?.detail);
+    showToast(`Assignment failed: ${errMsg}`, "error");
+    outputDiv.innerHTML = `<div style="background: #fee2e2; border: 1px solid #fca5a5; padding: 1.25rem; color: #b91c1c; border-radius: var(--radius-sm);">${errMsg}</div>`;
   }
 }
 
@@ -831,7 +1251,7 @@ async function loadAdminVerificationQueue() {
   if (res.ok && Array.isArray(res.data)) {
     const reviewQueue = res.data.filter(v => v.verification_status === "REQUIRES_ADMIN_REVIEW" || v.verification_status === "PENDING");
     if (reviewQueue.length === 0) {
-      container.innerHTML = `<div style="color: var(--text-muted); padding: 1rem;">No pending vehicle verifications in queue. All clear!</div>`;
+      container.innerHTML = `<div style="color: var(--text-muted); padding: 1.25rem;">No pending vehicle verifications in queue. All vehicles verified!</div>`;
       return;
     }
     container.innerHTML = reviewQueue.map(v => `
@@ -856,14 +1276,14 @@ async function loadAdminVerificationQueue() {
 }
 
 async function adminReviewAction(vehicleId, decision) {
-  const res = await API.reviewVerification(vehicleId, decision, `Administrative review by ${currentActor.name}`);
+  const res = await API.reviewVerification(vehicleId, decision, `Administrative review by ${currentActor.name || 'Official'}`);
   if (res.ok) {
     showToast(`Vehicle verification updated: ${decision}`, "success");
     loadAdminVerificationQueue();
     loadFleet();
     loadAuditTrail();
   } else {
-    showToast(`Review action failed: ${res.data?.detail}`, "error");
+    showToast(`Review action failed: ${formatApiError(res.data?.detail)}`, "error");
   }
 }
 
@@ -904,7 +1324,7 @@ function exportVehiclesCsvAction() {
   window.open(`${API_BASE}/records/export/vehicles`, '_blank');
 }
 
-// ----------------- MICROSERVICE HUB -----------------
+// ----------------- PLATFORM ACTIVITY & HUB -----------------
 async function loadOutboxEvents() {
   const tbody = document.getElementById("outbox-events-tbody");
   if (!tbody) return;
@@ -923,7 +1343,7 @@ async function loadOutboxEvents() {
 }
 
 async function dispatchOutboxAction() {
-  showToast("Publishing pending events to AgriLink message broker...", "info");
+  showToast("Dispatching pending events...", "info");
   const res = await API.dispatchOutbox();
   if (res.ok) {
     showToast(`Dispatched ${res.data.dispatched_count} events successfully!`, "success");
@@ -938,9 +1358,9 @@ async function loadWalletState() {
   if (res.ok && res.data) {
     const d = res.data;
     container.innerHTML = `
-      <div style="margin-bottom: 1rem;">
-        <h5>Citizen Balances:</h5>
-        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem;">
+      <div style="margin-bottom: 1.25rem;">
+        <h5 style="margin-bottom: 0.5rem;">Citizen Digital Balances:</h5>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
           ${Object.entries(d.balances).map(([cid, bal]) => `
             <div style="background: #f8fafc; border: 1px solid var(--border); padding: 0.5rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.85rem;">
               <strong>${cid}:</strong> ₹${bal.toLocaleString('en-IN')}
@@ -949,11 +1369,11 @@ async function loadWalletState() {
         </div>
       </div>
       <div>
-        <h5>Active Funds Holds:</h5>
-        ${d.holds.length === 0 ? `<div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">No active holds.</div>` : `
-          <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+        <h5 style="margin-bottom: 0.5rem;">Active Escrow Holds:</h5>
+        ${d.holds.length === 0 ? `<div style="font-size: 0.85rem; color: var(--text-muted);">No active escrow holds.</div>` : `
+          <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem;">
             ${d.holds.map(h => `
-              <li style="padding: 0.5rem 0.75rem; background: #e0f2fe; border-radius: var(--radius-sm); font-size: 0.85rem; display: flex; justify-content: space-between;">
+              <li style="padding: 0.55rem 0.85rem; background: #e0f2fe; border-radius: var(--radius-sm); font-size: 0.85rem; display: flex; justify-content: space-between;">
                 <span>🔒 <strong>${h.hold_id}</strong> (${h.citizen_id}) — Ref: ${h.reference_id}</span>
                 <strong>₹${h.amount} [${h.status}]</strong>
               </li>
@@ -1010,7 +1430,7 @@ async function submitRentalListingForm() {
   });
 
   if (res.ok) {
-    showToast("Rental listing published! Vehicle is now available for booking.", "success");
+    showToast("Rental listing published! Vehicle is now available in the fleet marketplace.", "success");
     closeModals();
     loadOwnerListings();
     loadOwnerVehicles();
@@ -1039,11 +1459,14 @@ async function submitRentalListingForm() {
         }
       }
     }
-    showToast(`Listing failed: ${res.data?.detail}`, "error");
+    showToast(`Listing failed: ${formatApiError(res.data?.detail)}`, "error");
   }
 }
 
 // Modal helper
 function closeModals() {
+  if (typeof stopActiveCamera === "function") {
+    stopActiveCamera();
+  }
   document.querySelectorAll(".modal-overlay").forEach(m => m.classList.remove("active"));
 }

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse, FileResponse
 
 from app.config import settings
 from app.database import engine, Base, SessionLocal
@@ -27,11 +27,11 @@ from app.api.v1.auth import hash_password
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("rto_microservice")
+logger = logging.getLogger("agrilink_fleet_platform")
 
 app = FastAPI(
-    title="AgriLink RTO & Vehicle Registry Microservice",
-    description="Microservice 3 of the AgriLink ecosystem. Handles vehicle registration, verification, fleet availability, rental listing, booking saga with wallet holds, AgriLink delivery vehicle assignment, and compliance tracking.",
+    title="AgriLink Commercial Fleet & Logistics Platform",
+    description="Commercial Fleet, Vehicle Registry & Logistics Platform API. Powers on-demand commercial & agricultural vehicle rentals, verified fleet onboarding, instant booking with digital wallet protection, and real-time logistics dispatch.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -47,7 +47,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# S04: Correlation ID middleware
+# Request tracking & correlation middleware
 app.add_middleware(CorrelationIdMiddleware)
 
 # API v1 Routers
@@ -64,6 +64,19 @@ app.include_router(inter_service_events.router, prefix=settings.API_V1_PREFIX)
 def on_startup():
     # Create tables
     Base.metadata.create_all(bind=engine)
+    try:
+        from sqlalchemy import text
+        with engine.begin() as conn:
+            try:
+                conn.execute(text("ALTER TABLE users ADD COLUMN face_descriptor TEXT"))
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE users ADD COLUMN face_thumbnail TEXT"))
+            except Exception:
+                pass
+    except Exception as e:
+        logger.debug(f"SQLite column migration check: {e}")
     logger.info("Database tables initialized successfully.")
     seed_initial_data()
 
@@ -239,7 +252,7 @@ def seed_initial_data():
             )
             db.add(l3)
 
-            # 4. Vehicle with expired PUC to test RTO-FR-13 compliance alert & auto-blocking
+            # 4. Vehicle with expired PUC to demonstrate automated compliance safety alert & listing pause
             v4 = Vehicle(
                 registration_number="KA-03-EX-0001",
                 vehicle_class=VehicleClass.LIGHT_COMMERCIAL,
@@ -277,10 +290,10 @@ frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 if os.path.exists(frontend_dir):
     app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
 
-    @app.get("/")
+    @app.get("/", response_class=HTMLResponse)
     def serve_frontend():
         index_file = os.path.join(frontend_dir, "index.html")
         if os.path.exists(index_file):
-            return FileResponse(index_file)
-        return {"status": "Frontend not yet built. Visit /docs for OpenAPI swagger."}
-
+            with open(index_file, "r", encoding="utf-8") as f:
+                return HTMLResponse(content=f.read())
+        return HTMLResponse(content="<h3>Frontend not yet built. Visit /docs for OpenAPI swagger.</h3>")

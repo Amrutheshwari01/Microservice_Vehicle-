@@ -12,6 +12,7 @@ if backend_path not in sys.path:
     sys.path.insert(0, backend_path)
 
 from app.database import Base, get_db
+import app.models  # Register all SQLAlchemy models
 from app.main import app
 from app.inter_service.identity_client import generate_mock_token
 

@@ -3,24 +3,24 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 class VehicleBase(BaseModel):
-    registration_number: str = Field(..., example="KA-01-AB-1234")
-    vehicle_class: str = Field(..., example="LIGHT_COMMERCIAL")
-    make_model: str = Field(..., example="Tata Ace Gold")
-    capacity_kg: float = Field(..., example=750.0)
-    seating_capacity: int = Field(default=2, example=2)
-    fuel_type: str = Field(default="DIESEL", example="DIESEL")
+    registration_number: str = Field(..., examples=["KA-01-AB-1234"])
+    vehicle_class: str = Field(..., examples=["LIGHT_COMMERCIAL"])
+    make_model: str = Field(..., examples=["Tata Ace Gold"])
+    capacity_kg: float = Field(..., examples=[750.0])
+    seating_capacity: int = Field(default=2, examples=[2])
+    fuel_type: str = Field(default="DIESEL", examples=["DIESEL"])
 
 class VehicleCreate(VehicleBase):
-    rc_document_number: str = Field(..., example="RC-99887766")
+    rc_document_number: str = Field(..., examples=["RC-99887766"])
     rc_file_data: Optional[str] = Field(None, description="Base64 or mock file reference of RC")
     rc_expiry_date: Optional[datetime] = None
 
 class DocumentCreate(BaseModel):
-    document_type: str = Field(..., example="INSURANCE")
-    document_number: str = Field(..., example="POL-2026-987654")
-    file_reference: str = Field(..., example="enc://docs/insurance_ka01ab1234.pdf")
+    document_type: str = Field(..., examples=["INSURANCE"])
+    document_number: str = Field(..., examples=["POL-2026-987654"])
+    file_reference: str = Field(..., examples=["enc://docs/insurance_ka01ab1234.pdf"])
     issue_date: Optional[datetime] = None
-    expiry_date: datetime = Field(..., example="2027-12-31T23:59:59")
+    expiry_date: datetime = Field(..., examples=["2027-12-31T23:59:59"])
 
 class DocumentResponse(BaseModel):
     id: str
@@ -37,8 +37,8 @@ class DocumentResponse(BaseModel):
         from_attributes = True
 
 class VerificationReviewRequest(BaseModel):
-    decision: str = Field(..., example="VERIFIED", description="VERIFIED or REJECTED")
-    reason: Optional[str] = Field(None, example="RC physically verified against state portal records")
+    decision: str = Field(..., examples=["VERIFIED"], description="VERIFIED or REJECTED")
+    reason: Optional[str] = Field(None, examples=["RC physically verified against state portal records"])
     admin_notes: Optional[str] = None
 
 class VehicleResponse(VehicleBase):
@@ -56,4 +56,3 @@ class VehicleResponse(VehicleBase):
 
 class VehicleDetailResponse(VehicleResponse):
     documents: List[DocumentResponse] = []
-

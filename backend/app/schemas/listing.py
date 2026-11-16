@@ -5,13 +5,13 @@ from app.schemas.vehicle import VehicleResponse
 
 class RentalListingCreate(BaseModel):
     vehicle_id: str
-    rate_per_hour: float = Field(..., gt=0, example=150.0)
-    rate_per_day: float = Field(..., gt=0, example=1200.0)
-    rate_per_km: float = Field(..., gt=0, example=12.0)
-    security_deposit: float = Field(..., ge=0, example=2000.0)
-    pickup_location: str = Field(..., example="Hebbal APMC Yard, Bengaluru")
-    pickup_coordinates: Optional[str] = Field(None, example="13.0358,77.5970")
-    rental_rules: Optional[str] = Field(None, example="Return with same fuel level. Carry valid commercial driving licence.")
+    rate_per_hour: float = Field(..., gt=0, examples=[150.0])
+    rate_per_day: float = Field(..., gt=0, examples=[1200.0])
+    rate_per_km: float = Field(..., gt=0, examples=[12.0])
+    security_deposit: float = Field(..., ge=0, examples=[2000.0])
+    pickup_location: str = Field(..., examples=["Hebbal APMC Yard, Bengaluru"])
+    pickup_coordinates: Optional[str] = Field(None, examples=["13.0358,77.5970"])
+    rental_rules: Optional[str] = Field(None, examples=["Return with same fuel level. Carry valid commercial driving licence."])
 
 class RentalListingUpdate(BaseModel):
     rate_per_hour: Optional[float] = None
@@ -75,4 +75,3 @@ class FleetSearchResult(BaseModel):
     pickup_location: str
     status: str
     availability_status: str = "AVAILABLE"
-
