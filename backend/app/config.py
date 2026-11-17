@@ -18,10 +18,12 @@ class Settings(BaseSettings):
     # Security & User Identity
     JWT_SECRET: str = os.getenv("JWT_SECRET", "agrilink-fleet-platform-secret-key-2026")
     JWT_ALGORITHM: str = "HS256"
+    INTERNAL_SERVICE_SECRET: str = os.getenv("INTERNAL_SERVICE_SECRET", "agrilink-internal-microservice-shared-secret-2026")
+    CITIZEN_SERVICE_URL: str = os.getenv("CITIZEN_SERVICE_URL", "http://localhost:8001/api/v1")
     MOCK_IDENTITY_URL: str = os.getenv("MOCK_IDENTITY_URL", "http://localhost:8000/v1/mock-identity")
     
     # Wallet Service
-    WALLET_SERVICE_URL: str = os.getenv("WALLET_SERVICE_URL", "http://localhost:8000/v1/mock-wallet")
+    WALLET_SERVICE_URL: str = os.getenv("WALLET_SERVICE_URL", "http://localhost:8001/api/v1")
     
     # Logistics Integration
     AGRILINK_SERVICE_URL: str = os.getenv("AGRILINK_SERVICE_URL", "http://localhost:8000/v1/mock-agrilink")

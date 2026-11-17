@@ -131,3 +131,70 @@ def handle_wallet_webhook(payload: WalletWebhookPayload):
         "processed_at": datetime.utcnow().isoformat()
     }
 
+@router.get("/connectivity")
+def check_inter_service_connectivity():
+    """
+    Live diagnostics verifying connection between Microservice_Vehicle (RTO)
+    and Microservice_Citizen (CIS Identity & Wallet).
+    """
+    import httpx
+    from app.config import settings
+
+    target_url = getattr(settings, "CITIZEN_SERVICE_URL", "http://localhost:8001/api/v1")
+    service_secret = getattr(settings, "INTERNAL_SERVICE_SECRET", "agrilink-internal-microservice-shared-secret-2026")
+    
+    citizen_ms_status = "OFFLINE"
+    status_detail = ""
+    sample_citizen = None
+
+    try:
+        with httpx.Client(timeout=3.0) as client:
+            headers = {"X-Service-Key": service_secret}
+            # Query the first active citizen in the database
+            from app.database import engine
+            from sqlalchemy import text
+            citizen_uuid = None
+            try:
+                with engine.connect() as conn:
+                    citizen_uuid = conn.execute(text("SELECT id FROM public.citizens WHERE status = 'ACTIVE' LIMIT 1")).scalar()
+            except Exception:
+                pass
+            
+            if citizen_uuid:
+                probe_url = f"{target_url}/internal/citizens/{citizen_uuid}/status"
+                resp = client.get(probe_url, headers=headers)
+                if resp.status_code == 200:
+                    citizen_ms_status = "CONNECTED"
+                    sample_citizen = resp.json()
+                else:
+                    citizen_ms_status = f"HTTP_{resp.status_code}"
+                    status_detail = resp.text
+            else:
+                # Fallback probe to openapi docs
+                docs_resp = client.get("http://localhost:8001/docs")
+                if docs_resp.status_code == 200:
+                    citizen_ms_status = "CONNECTED"
+    except Exception as e:
+        status_detail = str(e)
+
+    return {
+        "status": "HEALTHY",
+        "source_microservice": {
+            "name": "Microservice_Vehicle- (RTO Commercial Fleet & Registry)",
+            "port": 8000
+        },
+        "target_microservice": {
+            "name": "Microservice_Citizen (Identity & Wallet Service)",
+            "url": target_url,
+            "port": 8001,
+            "status": citizen_ms_status,
+            "detail": status_detail,
+            "live_citizen_verified": sample_citizen
+        },
+        "shared_infrastructure": {
+            "database": "Supabase PostgreSQL (Project ID: mgilglfzakfqmssxadrx)",
+            "shared_jwt_algorithm": settings.JWT_ALGORITHM,
+            "inter_service_auth": "X-Service-Key Pre-shared Secret"
+        }
+    }
+
