@@ -1,4 +1,5 @@
 import os
+import uuid
 import json
 import logging
 import hashlib
@@ -96,7 +97,9 @@ def signup(user_in: UserSignUp, db: Session = Depends(get_db)):
             logger.warning(f"Could not extract face descriptor during signup: {e}")
 
     hashed = hash_password(user_in.password)
+    user_id = f"CIT-{uuid.uuid4().hex[:8].upper()}"
     user = User(
+        id=user_id,
         name=user_in.name.strip(),
         email=clean_email,
         phone=user_in.phone,
@@ -109,7 +112,10 @@ def signup(user_in: UserSignUp, db: Session = Depends(get_db)):
     )
     db.add(user)
     db.commit()
-    db.refresh(user)
+    try:
+        db.refresh(user)
+    except Exception as e:
+        logger.debug(f"Post-commit refresh skipped for {user_id}: {e}")
 
     # Initialize wallet with ₹30,000 for rental holds / transactions
     _MOCK_WALLET_BALANCES[user.id] = 30000.0
@@ -292,7 +298,10 @@ def enroll_face(
     user.face_descriptor = json.dumps(desc_vec)
     user.face_thumbnail = thumb
     db.commit()
-    db.refresh(user)
+    try:
+        db.refresh(user)
+    except Exception:
+        pass
 
     lic_classes = [c.strip() for c in user.driving_licence_classes.split(",") if c.strip()]
     personas = ["CITIZEN", user.role]

@@ -573,7 +573,17 @@ async function handleSignUp() {
       showToast(`Account created for ${name}! Please enter your password to sign in.`, "success");
     }
   } else {
-    showToast(`Registration failed: ${formatApiError(res.data?.detail, 'Please check your inputs')}`, "error");
+    const errorMsg = formatApiError(res.data?.detail, 'Please check your inputs');
+    if (res.status === 409 || errorMsg.toLowerCase().includes("already exists")) {
+      showToast(`Account already registered! Switched to Sign In.`, "info");
+      switchAuthTab("signin");
+      const emailField = document.getElementById("signin-email");
+      if (emailField) emailField.value = email;
+      const pwField = document.getElementById("signin-password");
+      if (pwField) pwField.focus();
+    } else {
+      showToast(`Registration failed: ${errorMsg}`, "error");
+    }
   }
 }
 

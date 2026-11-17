@@ -79,7 +79,14 @@ async function apiRequest(endpoint, method = "GET", body = null, customHeaders =
       return { ok: res.ok, status: res.status, data: text, isBlob: true };
     }
 
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch (_) {
+      const text = await res.text().catch(() => "");
+      data = { detail: text || `Server error (${res.status})` };
+    }
+
     return {
       ok: res.ok,
       status: res.status,
@@ -88,7 +95,7 @@ async function apiRequest(endpoint, method = "GET", body = null, customHeaders =
     };
   } catch (err) {
     console.error("API Error:", err);
-    return { ok: false, status: 500, data: { detail: err.message }, correlationId };
+    return { ok: false, status: 500, data: { detail: err.message || "Network request failed" }, correlationId };
   }
 }
 
