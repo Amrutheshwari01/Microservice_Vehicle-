@@ -226,17 +226,27 @@ function stopActiveCamera() {
 
 async function startCameraForElement(videoEl) {
   stopActiveCamera();
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    throw new Error("Webcam access is not supported by your browser. Please use photo upload instead.");
+  if (!window.isSecureContext && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    throw new Error("Browsers block cameras on plain HTTP IP addresses. Either whitelist this URL in chrome://flags/#unsafely-treat-insecure-origin-as-secure or click 'Upload Photo' below.");
   }
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
-    audio: false
-  });
-  activeCameraStream = stream;
-  videoEl.srcObject = stream;
-  await videoEl.play();
-  return stream;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error("Webcam access is restricted by your browser. Please use 'Upload Photo' below.");
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+      audio: false
+    });
+    activeCameraStream = stream;
+    videoEl.srcObject = stream;
+    await videoEl.play();
+    return stream;
+  } catch (err) {
+    if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+      throw new Error("Camera permission blocked. Click the tune/camera icon in your address bar to Allow camera, or use 'Upload Photo'.");
+    }
+    throw err;
+  }
 }
 
 function captureVideoFrameAsBase64(videoEl, canvasEl, maxWidth = 320) {
