@@ -231,11 +231,11 @@ def face_login(req: FaceLoginRequest, db: Session = Depends(get_db)):
                 detail="Biometric descriptor comparison encountered an internal error."
             )
 
-        if similarity < 0.65:
+        if similarity < 0.50:
             conf_pct = max(0, int(similarity * 100))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Face verification failed. Match confidence was {conf_pct}% (minimum required: 65%). Please ensure your face is well-lit and directly facing the camera."
+                detail=f"Face verification failed. Match confidence was {conf_pct}% (minimum required: 50%). Please ensure your face is well-lit and directly facing the camera."
             )
         matched_user = user
     else:
@@ -246,7 +246,7 @@ def face_login(req: FaceLoginRequest, db: Session = Depends(get_db)):
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No registered accounts have face biometrics enrolled yet. Please create an account or sign in with password first."
             )
-        match_result = match_face_against_users(captured_desc, candidates, threshold=0.65)
+        match_result = match_face_against_users(captured_desc, candidates, threshold=0.50)
         if not match_result:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

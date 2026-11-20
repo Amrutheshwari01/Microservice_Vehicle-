@@ -107,7 +107,7 @@ def compare_face_descriptors(desc1: List[float], desc2: List[float]) -> float:
     v2 = np.array(desc2, dtype=np.float32)
     return float(np.dot(v1, v2))
 
-def match_face_against_users(captured_desc: List[float], users: list, threshold: float = 0.65):
+def match_face_against_users(captured_desc: List[float], users: list, threshold: float = 0.50):
     """
     Finds best matching user among candidate users who have enrolled face descriptors.
     Returns: (matching_user, similarity_score) or None
