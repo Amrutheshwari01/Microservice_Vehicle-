@@ -35,7 +35,7 @@ else:
     def set_postgres_schema(dbapi_connection, connection_record):
         try:
             cursor = dbapi_connection.cursor()
-            cursor.execute('SET search_path TO "RTO database", public')
+            cursor.execute('SET search_path TO public')
             cursor.close()
         except Exception:
             pass

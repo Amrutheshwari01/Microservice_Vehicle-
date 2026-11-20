@@ -16,17 +16,17 @@ def check_database():
 
     try:
         with engine.connect() as conn:
-            # 1. Registered Users
+            # 1. Registered Users (Public Schema)
             users = conn.execute(text("""
                 SELECT id, name, email, phone, role, 
                        (face_descriptor IS NOT NULL) as has_face,
                        created_at 
-                FROM users 
+                FROM public.users 
                 ORDER BY created_at DESC 
                 LIMIT 10
             """)).fetchall()
 
-            total_users = conn.execute(text("SELECT count(*) FROM users")).scalar()
+            total_users = conn.execute(text("SELECT count(*) FROM public.users")).scalar()
             print(f"\n👤 LATEST USERS (Total Registered: {total_users}):")
             print("-" * 70)
             if not users:
@@ -36,29 +36,29 @@ def check_database():
                 reg_date = u[6].strftime("%Y-%m-%d %H:%M:%S") if u[6] else "N/A"
                 print(f"  • {u[1]:<22} | Email: {u[2]:<30} | Role: {u[4]:<14} | {face_status} | {reg_date}")
 
-            # 2. Registered Fleet Vehicles
+            # 2. Registered Fleet Vehicles (Public Schema)
             vehicles = conn.execute(text("""
                 SELECT id, registration_number, vehicle_class, make_model, owner_name, status, verification_status
-                FROM vehicles 
+                FROM public.vehicles 
                 ORDER BY created_at DESC 
                 LIMIT 10
             """)).fetchall()
 
-            total_vehicles = conn.execute(text("SELECT count(*) FROM vehicles")).scalar()
+            total_vehicles = conn.execute(text("SELECT count(*) FROM public.vehicles")).scalar()
             print(f"\n🚚 REGISTERED FLEET (Total Vehicles: {total_vehicles}):")
             print("-" * 70)
             for v in vehicles:
                 print(f"  • {v[1]:<14} | {v[3]:<32} | Owner: {v[4]:<16} | Status: {v[5]}")
 
-            # 3. Rental Bookings
+            # 3. Rental Bookings (Public Schema)
             bookings = conn.execute(text("""
                 SELECT id, booking_ref, vehicle_id, renter_name, status, start_time, end_time, created_at
-                FROM bookings 
+                FROM public.bookings 
                 ORDER BY created_at DESC 
                 LIMIT 10
             """)).fetchall()
 
-            total_bookings = conn.execute(text("SELECT count(*) FROM bookings")).scalar()
+            total_bookings = conn.execute(text("SELECT count(*) FROM public.bookings")).scalar()
             print(f"\n📅 RECENT BOOKINGS (Total Bookings: {total_bookings}):")
             print("-" * 70)
             if not bookings:
@@ -67,10 +67,10 @@ def check_database():
                 created = b[7].strftime("%Y-%m-%d %H:%M") if b[7] else "N/A"
                 print(f"  • Ref: {b[1]:<18} | Renter: {b[3]:<18} | Status: {b[4]:<12} | Placed: {created}")
 
-            # 4. Outbox Inter-service Events
+            # 4. Outbox Inter-service Events (Public Schema)
             outbox = conn.execute(text("""
                 SELECT id, event_type, aggregate_id, published, created_at
-                FROM outbox_events 
+                FROM public.outbox_events 
                 ORDER BY created_at DESC 
                 LIMIT 5
             """)).fetchall()
