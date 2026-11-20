@@ -79,12 +79,12 @@ async function apiRequest(endpoint, method = "GET", body = null, customHeaders =
       return { ok: res.ok, status: res.status, data: text, isBlob: true };
     }
 
+    const rawText = await res.text();
     let data;
     try {
-      data = await res.json();
+      data = JSON.parse(rawText);
     } catch (_) {
-      const text = await res.text().catch(() => "");
-      data = { detail: text || `Server error (${res.status})` };
+      data = { detail: rawText || `Server error (${res.status})` };
     }
 
     return {

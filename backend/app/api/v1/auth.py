@@ -110,12 +110,20 @@ def signup(user_in: UserSignUp, db: Session = Depends(get_db)):
         face_descriptor=face_desc_json,
         face_thumbnail=face_thumb
     )
-    db.add(user)
-    db.commit()
     try:
-        db.refresh(user)
-    except Exception as e:
-        logger.debug(f"Post-commit refresh skipped for {user_id}: {e}")
+        db.add(user)
+        db.commit()
+        try:
+            db.refresh(user)
+        except Exception as e:
+            logger.debug(f"Post-commit refresh skipped for {user_id}: {e}")
+    except Exception as exc:
+        db.rollback()
+        logger.error(f"Error persisting new user {clean_email}: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {str(exc)}"
+        )
 
     # Initialize wallet with ₹30,000 for rental holds / transactions
     _MOCK_WALLET_BALANCES[user.id] = 30000.0
