@@ -40,5 +40,6 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = _ENV_FILE if os.path.exists(_ENV_FILE) else ".env"
+        extra = "ignore"
 
 settings = Settings()
