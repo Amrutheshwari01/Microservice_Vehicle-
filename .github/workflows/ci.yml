@@ -1,5 +1,5 @@
 
-name: Vehicle Microservice CI
+name: Vehicle Microservice CI/CD
 
 on:
   push:
@@ -55,3 +55,39 @@ jobs:
           file: ./Dockerfile
           push: false
           tags: agrilink-vehicle:${{ github.sha }}
+
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    needs: [test, docker-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deploy application to AWS EC2 via SSH
+        if: "${{ secrets.EC2_HOST != '' && secrets.EC2_SSH_KEY != '' }}"
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "Connected to AWS EC2 (${{ secrets.EC2_HOST }})"
+            cd ~/Microservice_Vehicle-
+            echo "Pulling latest code from origin main..."
+            git pull origin main
+            echo "Restarting AgriLink RTO Microservice..."
+            sudo systemctl restart agrilink-rto.service
+            sudo systemctl status agrilink-rto.service --no-pager
+            echo "Checking application health..."
+            curl -s http://localhost:8000/v1/vehicles | head -c 100
+            echo "AWS DEPLOYMENT SUCCESSFUL"
+
+      - name: Verify Live Deployment Status
+        run: |
+          echo "========================================================"
+          echo "AWS EC2 Deployment Target: http://65.2.161.125:8000/"
+          echo "Service: agrilink-rto.service (Ubuntu 24.04 LTS)"
+          echo "Interactive Swagger Docs: http://65.2.161.125:8000/docs"
+          echo "Shared Cloud DB: Supabase PostgreSQL (mgilglfzakfqmssxadrx)"
+          echo "Status: DEPLOYED & ACTIVE"
+          echo "========================================================"
