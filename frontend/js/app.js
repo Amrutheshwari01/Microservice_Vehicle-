@@ -294,8 +294,11 @@ function switchAuthTab(tab) {
     if (faceloginBtn) faceloginBtn.classList.add("active");
     if (faceloginForm) faceloginForm.style.display = "block";
     title.textContent = "Biometric Face Recognition Sign In";
-    sub.textContent = "Look into your camera or upload a photo to authenticate instantly";
-    startFaceLoginCamera();
+    sub.textContent = "Webcam is optional. Open your camera, upload a photo, or sign in with password.";
+    const statusEl = document.getElementById("face-login-status");
+    if (statusEl) {
+      statusEl.innerHTML = `Webcam is optional. Click <b>Scan Face</b> or <b>Upload Photo</b> below.`;
+    }
   } else {
     if (signupBtn) signupBtn.classList.add("active");
     if (signupForm) signupForm.style.display = "block";
@@ -321,7 +324,7 @@ async function startFaceLoginCamera() {
     await startCameraForElement(videoEl);
     statusEl.textContent = "Position your face in the circle and click 'Scan Face & Sign In'";
   } catch (err) {
-    statusEl.innerHTML = `<span style="color: #dc2626;">Camera unavailable (${err.message}). You can upload a photo below.</span>`;
+    statusEl.innerHTML = `<span style="color: #64748b;">Webcam not active. Click <b>Upload Photo</b> or <b>Password Sign In</b> below.</span>`;
   }
 }
 
@@ -339,7 +342,7 @@ async function performFaceLogin(overrideImage = null) {
         await startFaceLoginCamera();
         return;
       } catch (e) {
-        showToast("Please enable camera access or upload a photo.", "error");
+        showToast("Webcam is optional: You can upload a photo or sign in with your password.", "info");
         return;
       }
     }

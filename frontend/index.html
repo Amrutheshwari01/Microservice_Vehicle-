@@ -607,7 +607,7 @@
           </div>
         </div>
 
-        <!-- Face Recognition Login Form -->
+        <!-- Face Recognition Login Form (100% Optional) -->
         <div id="auth-form-facelogin" style="display: none;">
           <div class="face-auth-box">
             <div class="face-camera-container">
@@ -621,7 +621,7 @@
               <img id="face-login-captured-img" class="face-captured-preview" style="display: none;" alt="Captured Face Preview">
             </div>
             <div id="face-login-status" class="face-status-badge">
-              Position your face inside the circle &amp; ensure good lighting
+              Webcam is optional. Click "Open Camera", "Upload Photo", or use Password Sign In below.
             </div>
           </div>
 
@@ -630,17 +630,20 @@
             <input type="text" id="face-login-email" class="form-control" placeholder="Leave blank to scan &amp; match all registered profiles">
           </div>
 
-          <button class="btn btn-primary btn-block" id="btn-face-login-scan" onclick="performFaceLogin()">
-            📸 Scan Face &amp; Sign In
-          </button>
-
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.85rem; font-size: 0.85rem;">
-            <button type="button" class="link-btn" onclick="document.getElementById('face-login-file-input').click()">
-              📁 Or upload a face photo
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.75rem;">
+            <button class="btn btn-primary" id="btn-face-login-scan" onclick="performFaceLogin()">
+              📸 Scan Face &amp; Sign In
             </button>
-            <input type="file" id="face-login-file-input" accept="image/*" style="display: none;" onchange="handleFaceLoginFile(event)">
-            <button type="button" class="link-btn-accent" onclick="switchAuthTab('signin')">Password Sign In</button>
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('face-login-file-input').click()">
+              📁 Upload Photo
+            </button>
           </div>
+
+          <div style="text-align: center; margin-top: 1rem; font-size: 0.88rem; color: var(--text-muted);">
+            Don't want to use your camera? 
+            <button type="button" class="link-btn-accent" onclick="switchAuthTab('signin')">Sign In with Password instead</button>
+          </div>
+          <input type="file" id="face-login-file-input" accept="image/*" style="display: none;" onchange="handleFaceLoginFile(event)">
         </div>
 
         <!-- Sign Up Form (User creates their own credentials) -->
@@ -688,15 +691,15 @@
             </div>
           </div>
 
-          <!-- Face Biometrics Enrollment Section -->
+          <!-- Face Biometrics Enrollment Section (100% Optional) -->
           <div class="face-enrollment-card">
             <div class="face-enrollment-header">
               <div style="font-weight: 700; font-size: 0.92rem; color: #1e293b; display: flex; align-items: center; gap: 0.4rem;">
-                <span>👤</span> <span>Enroll Face Biometric for 1-Click Login</span>
+                <span>👤</span> <span>Enroll Face Biometric (100% Optional)</span>
                 <span class="badge badge-green" style="font-size: 0.72rem;">Optional</span>
               </div>
               <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
-                Capture or upload your face photo now to log in instantly with Face Recognition!
+                Optional: You can skip this and create an account with just username &amp; password. Webcam access is not required.
               </div>
             </div>
 
